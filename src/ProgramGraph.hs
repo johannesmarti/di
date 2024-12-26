@@ -15,19 +15,16 @@ data Unfolding r v n = Atom (Atom r v) | Equality v v | Top | Bot |
 data ProgramGraph r v n = ProgramGraph {
   unfolding :: Map n (Unfolding r v n),
   predecessorMap :: Map n (Set n),
-  inputVariablesMap :: Map n (Set v)
+  outputVariablesMap :: Map n (Set v)
 }
 
 domain :: ProgramGraph r v n -> Set n
 domain graph = keysSet (unfolding graph)
 
-inputVariables :: Ord n => ProgramGraph r v n -> n -> Set v
-inputVariables graph node = 
-  let err = error "node not in ProgramGraph"
-  in fromMaybe err (Map.lookup node (inputVariablesMap graph))
-
 outputVariables :: Ord n => ProgramGraph r v n -> n -> Set v
-outputVariables = undefined
+outputVariables graph node = 
+  let err = error "node not in ProgramGraph"
+  in fromMaybe err (Map.lookup node (outputVariablesMap graph))
 
 unfold :: Ord n => ProgramGraph r v n -> n -> Unfolding r v n
 unfold graph node =
@@ -44,3 +41,11 @@ nodesInUnfolding _ = Set.empty
 
 successors :: Ord n => ProgramGraph r v n -> n -> Set n
 successors graph node = nodesInUnfolding (unfold graph node)
+
+predecessors :: Ord n => ProgramGraph r v n -> n -> Set n
+predecessors graph node =
+  let err = error "node not in ProgramGraph"
+  in fromMaybe err (Map.lookup node (predecessorMap graph))
+
+
+
