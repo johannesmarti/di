@@ -5,11 +5,12 @@ module ProgramGraph (
 
 import Control.Exception (assert)
 
-import Data.List (nub)
+import Data.List (nub, intercalate)
 import Data.Map.Strict as Map
 import Data.Maybe
 import Data.Set as Set
 
+import DatalogProgram hiding (Atom)
 import qualified DatalogProgram as DP
 
 
@@ -24,6 +25,7 @@ data NodeData r v n = NodeData {
 }
 
 data ProgramGraph r v n = ProgramGraph {dataMap :: (Map n (NodeData r v n))}
+
 
 -- basic accessing functions
 
@@ -112,7 +114,7 @@ outputVariablesCoherent graph =
          Just set -> outputVariablesFromInputVariables uf set == outVars
          Nothing  -> False
 
--- Should also check that renamed and bound and projected variables make
+-- TODO: Should also check that renamed, bound and projected variables make
 -- sense. I am not yet sure how to do this well.
 isCoherent :: (Ord v, Ord n) => ProgramGraph r v n -> Bool
 isCoherent graph =
@@ -120,7 +122,9 @@ isCoherent graph =
   succPredMatch graph &&
   outputVariablesCoherent graph
 
+
 -- creation
+
 isNub :: Eq a => [a] -> Bool
 isNub list = length list == length (nub list)
 
@@ -135,4 +139,33 @@ fromTupleList tupleList = assert (isNub (Prelude.map (\(f,_,_) -> f) tupleList))
       aList = Prelude.map (\(n,u,v) -> (n, NodeData u (preds n) v)) tupleList
       graph = ProgramGraph (Map.fromList aList)
   in assert (isCoherent graph) graph
+
+
+-- pretty printing
+
+prettyProgramGraphPrinter :: (r -> String) -> (v -> String) -> (n -> String)
+                             -> ProgramGraph r v n -> String
+prettyProgramGraphPrinter pRel pVar pNode (ProgramGraph m) =
+  let prettyOutVars set = intercalate ", " (Prelude.map pVar (Set.toList set))
+      prettyUnfolding (Atom dpAtom) = DP.prettyAtom pRel pVar dpAtom
+      prettyUnfolding (Equality v w) = pVar v ++ " = " ++ pVar w
+      prettyUnfolding Top = "top"
+      prettyUnfolding Bot = "bot"
+      prettyUnfolding (And x y) = pNode x ++ " and " ++ pNode y
+      prettyUnfolding (Or x y) = pNode x ++ " or " ++ pNode y
+      prettyUnfolding (Exists v x) = "exists " ++ pVar v ++ "." ++ pNode x
+      prettyUnfolding (Project v x) = "proj " ++ pVar v ++ "." ++ pNode x
+      prettyUnfolding (Assign v w x) = pNode x
+                                        ++ "[" ++ pVar w ++ "/" ++ pVar v ++ "]"
+      prettyNode (n, NodeData uf _ outVars) =
+        (pNode n) ++ " [" ++ prettyOutVars outVars ++ "] -> "
+                  ++ prettyUnfolding uf
+  in concatMap prettyNode (Map.toList m)
+
+showProgramGraph :: (Show r, Show v, Show n) => ProgramGraph r v n -> String
+showProgramGraph = prettyProgramGraphPrinter show show show
+
+prettyProgramGraph :: (Pretty r, Pretty v, Pretty n) =>
+                      ProgramGraph r v n -> String
+prettyProgramGraph = prettyProgramGraphPrinter pretty pretty pretty
 

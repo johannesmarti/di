@@ -11,6 +11,7 @@ module DatalogProgram (
   headAtom,
   bodyAtoms,
   DatalogProgram,
+  prettyAtom,
   prettyDatalogProgram,
   showDatalogProgram,
   Pretty,
