@@ -13,10 +13,10 @@ transitive :: [(Int, Unfolding Char Char Int, [Char])]
 transitive = [
   (1, ProgramGraph.Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']),
 
-  (2, Or 1 3, ['x', 'y']),
+  (2, Or (Set.fromList [1, 3]), ['x', 'y']),
   (3, Exists 'z' 4, ['x', 'y']),
 
-  (4, And 5 6, ['x', 'z', 'y']),
+  (4, And (Set.fromList [5, 6]), ['x', 'z', 'y']),
 
   (5, Project 'y' 7, ['x', 'z', 'y']),
   (7, Assign 'z' 'y' 2, ['x', 'z']),

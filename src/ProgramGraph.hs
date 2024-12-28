@@ -16,9 +16,9 @@ import Atom hiding (Atom)
 import qualified Atom as At
 import Pretty
 
-data Unfolding r v n = Atom (At.Atom r v) | Equality v v | Top | Bot |
-                       And n n | Or n n | Exists v n | Project v n |
-                       Assign v v n
+data Unfolding r v n = Atom (At.Atom r v) | Equality v v |
+                       And (Set n) | Or (Set n) |
+                       Exists v n | Project v n | Assign v v n
 
 data NodeData r v n = NodeData {
   unfolding :: Unfolding r v n,
@@ -46,8 +46,8 @@ outputVariablesOfNode :: Ord n => ProgramGraph r v n -> n -> Set v
 outputVariablesOfNode graph node = outputVariables (dataOfNode graph node)
 
 nodesInUnfolding :: Ord n => Unfolding r v n -> Set n
-nodesInUnfolding (And a b) = Set.fromList [a,b]
-nodesInUnfolding (Or a b) = Set.fromList [a,b]
+nodesInUnfolding (And s) = s
+nodesInUnfolding (Or s) = s
 nodesInUnfolding (Exists v a) = Set.singleton a
 nodesInUnfolding (Project v a) = Set.singleton a
 nodesInUnfolding (Assign v w a) = Set.singleton a
@@ -84,10 +84,8 @@ succPredMatch graph = (sameOnDom dom (predecessorsOfNode graph) pred') where
 outputVariablesFromInputVariables :: Ord v => Unfolding r v n -> Set v -> Set v
 outputVariablesFromInputVariables (Atom at) _ = Set.fromList $ arguments at
 outputVariablesFromInputVariables (Equality v w) _ = Set.fromList $ [v, w]
-outputVariablesFromInputVariables Top _ = Set.empty
-outputVariablesFromInputVariables Bot _ = Set.empty
-outputVariablesFromInputVariables (And _ _) inVars = inVars
-outputVariablesFromInputVariables (Or _ _) inVars = inVars
+outputVariablesFromInputVariables (And _) inVars = inVars
+outputVariablesFromInputVariables (Or _) inVars = inVars
 outputVariablesFromInputVariables (Exists v _) inVars = Set.delete v inVars
 outputVariablesFromInputVariables (Project v _) inVars =
   assert (not $ v `Set.member` inVars) $ Set.insert v inVars
@@ -149,18 +147,19 @@ prettyProgramGraphPrinter :: (r -> String) -> (v -> String) -> (n -> String)
                              -> ProgramGraph r v n -> String
 prettyProgramGraphPrinter pRel pVar pNode (ProgramGraph m) =
   let prettyOutVars set = intercalate ", " (Prelude.map pVar (Set.toList set))
+      prettySet set = "{" ++
+                       intercalate ", " (Prelude.map pNode (Set.toList set))
+                          ++ "}"
       prettyUnfolding (Atom dpAtom) = prettyAtom pRel pVar dpAtom
       prettyUnfolding (Equality v w) = pVar v ++ " = " ++ pVar w
-      prettyUnfolding Top = "top"
-      prettyUnfolding Bot = "bot"
-      prettyUnfolding (And x y) = pNode x ++ " and " ++ pNode y
-      prettyUnfolding (Or x y) = pNode x ++ " or " ++ pNode y
+      prettyUnfolding (And s) = "and " ++ prettySet s
+      prettyUnfolding (Or s) = "or " ++ prettySet s
       prettyUnfolding (Exists v x) = "exists " ++ pVar v ++ " . " ++ pNode x
       prettyUnfolding (Project v x) = "proj " ++ pVar v ++ " . " ++ pNode x
       prettyUnfolding (Assign v w x) = pNode x
                                         ++ "[" ++ pVar v ++ "/" ++ pVar w ++ "]"
       prettyNode (n, NodeData uf _ outVars) =
-        (pNode n) ++ " : [" ++ prettyOutVars outVars ++ "] -> "
+        (pNode n) ++ " :: [" ++ prettyOutVars outVars ++ "] -> "
                   ++ prettyUnfolding uf ++ "\n"
   in concatMap prettyNode (Map.toList m)
 
