@@ -62,7 +62,7 @@ executable dc
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules: DatalogProgram, ProgramGraph
+    other-modules: Program, ProgramGraph
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -78,4 +78,4 @@ executable dc
     default-language: Haskell2010
 
     -- We don't need optimization for now. I want to have all asserts going strong
-    optimization: 0
+    ghc-options: -O0

@@ -3,17 +3,17 @@
 {-# LANGUAGE InstanceSigs #-}
 -- All of these pragmas need are needed to make String an instance of a type class. lol
 
-module DatalogProgram (
+module Program (
   Atom(Atom),
   predicateSymbol,
   arguments,
   Rule(Rule),
   headAtom,
   bodyAtoms,
-  DatalogProgram,
+  Program,
   prettyAtom,
-  prettyDatalogProgram,
-  showDatalogProgram,
+  prettyProgram,
+  showProgram,
   Pretty,
   pretty,
 ) where
@@ -45,17 +45,17 @@ instance (Show r, Show v) => Show (Rule r v) where
   show = prettyRule show show
 
 
-type DatalogProgram r v = [Rule r v]
+type Program r v = [Rule r v]
 
-prettyDatalogProgramPrinter :: (r -> String) -> (v -> String) -> DatalogProgram r v -> String
-prettyDatalogProgramPrinter pRel pVar rules = let pRule r = prettyRule pRel pVar r ++ "\n"
+prettyProgramPrinter :: (r -> String) -> (v -> String) -> Program r v -> String
+prettyProgramPrinter pRel pVar rules = let pRule r = prettyRule pRel pVar r ++ "\n"
   in concatMap pRule rules
 
-showDatalogProgram :: (Show r, Show v) => DatalogProgram r v -> String
-showDatalogProgram = prettyDatalogProgramPrinter show show
+showProgram :: (Show r, Show v) => Program r v -> String
+showProgram = prettyProgramPrinter show show
 
-prettyDatalogProgram :: (Pretty r, Pretty v) => DatalogProgram r v -> String
-prettyDatalogProgram = prettyDatalogProgramPrinter pretty pretty
+prettyProgram :: (Pretty r, Pretty v) => Program r v -> String
+prettyProgram = prettyProgramPrinter pretty pretty
 
 class Pretty p where
   pretty :: p -> String

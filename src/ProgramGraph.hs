@@ -1,6 +1,8 @@
 module ProgramGraph (
+  Unfolding(..),
   ProgramGraph,
-  fromTupleList
+  fromTupleList,
+  prettyProgramGraph
 ) where
 
 import Control.Exception (assert)
@@ -10,11 +12,11 @@ import Data.Map.Strict as Map
 import Data.Maybe
 import Data.Set as Set
 
-import DatalogProgram hiding (Atom)
-import qualified DatalogProgram as DP
+import Program hiding (Atom)
+import qualified Program as P
 
 
-data Unfolding r v n = Atom (DP.Atom r v) | Equality v v | Top | Bot |
+data Unfolding r v n = Atom (P.Atom r v) | Equality v v | Top | Bot |
                        And n n | Or n n | Exists v n | Project v n |
                        Assign v v n
 
@@ -80,7 +82,7 @@ succPredMatch graph = (sameOnDom dom (predecessorsOfNode graph) pred') where
   pred' = converse dom (successorsOfNode graph)
 
 outputVariablesFromInputVariables :: Ord v => Unfolding r v n -> Set v -> Set v
-outputVariablesFromInputVariables (Atom at) _ = Set.fromList $ DP.arguments at
+outputVariablesFromInputVariables (Atom at) _ = Set.fromList $ P.arguments at
 outputVariablesFromInputVariables (Equality v w) _ = Set.fromList $ [v, w]
 outputVariablesFromInputVariables Top _ = Set.empty
 outputVariablesFromInputVariables Bot _ = Set.empty
@@ -107,7 +109,7 @@ outputVariablesCoherent graph =
              Just set -> if (all (== set) allInVars)
                            then Just set
                            else Nothing
-             Nothing -> error "we don't have incoming nodes"
+             Nothing -> Just (error "we don't have incoming nodes")
                           -- this error will only trigger if there is a
                           -- mistake in outputVariablesFromInputVariables
     in case maybeInputVars of
@@ -128,13 +130,13 @@ isCoherent graph =
 isNub :: Eq a => [a] -> Bool
 isNub list = length list == length (nub list)
 
+-- This function would have room for optimization
 fromTupleList :: (Ord v, Ord n) => [(n, Unfolding r v n, Set v)]
                                    -> ProgramGraph r v n
 fromTupleList tupleList = assert (isNub (Prelude.map (\(f,_,_) -> f) tupleList)) $
   let domSet = Set.fromList (Prelude.map (\(f,_,_) -> f) tupleList)
       ufList = Prelude.map (\(f,uf,_) -> (f,uf)) tupleList
-      succs n = nodesInUnfolding (fromJust (error "your mum")
-                                          (Prelude.lookup n ufList))
+      succs n = nodesInUnfolding (fromJust (Prelude.lookup n ufList))
       preds = converse domSet succs
       aList = Prelude.map (\(n,u,v) -> (n, NodeData u (preds n) v)) tupleList
       graph = ProgramGraph (Map.fromList aList)
@@ -147,19 +149,19 @@ prettyProgramGraphPrinter :: (r -> String) -> (v -> String) -> (n -> String)
                              -> ProgramGraph r v n -> String
 prettyProgramGraphPrinter pRel pVar pNode (ProgramGraph m) =
   let prettyOutVars set = intercalate ", " (Prelude.map pVar (Set.toList set))
-      prettyUnfolding (Atom dpAtom) = DP.prettyAtom pRel pVar dpAtom
+      prettyUnfolding (Atom dpAtom) = P.prettyAtom pRel pVar dpAtom
       prettyUnfolding (Equality v w) = pVar v ++ " = " ++ pVar w
       prettyUnfolding Top = "top"
       prettyUnfolding Bot = "bot"
       prettyUnfolding (And x y) = pNode x ++ " and " ++ pNode y
       prettyUnfolding (Or x y) = pNode x ++ " or " ++ pNode y
-      prettyUnfolding (Exists v x) = "exists " ++ pVar v ++ "." ++ pNode x
-      prettyUnfolding (Project v x) = "proj " ++ pVar v ++ "." ++ pNode x
+      prettyUnfolding (Exists v x) = "exists " ++ pVar v ++ " . " ++ pNode x
+      prettyUnfolding (Project v x) = "proj " ++ pVar v ++ " . " ++ pNode x
       prettyUnfolding (Assign v w x) = pNode x
-                                        ++ "[" ++ pVar w ++ "/" ++ pVar v ++ "]"
+                                        ++ "[" ++ pVar v ++ "/" ++ pVar w ++ "]"
       prettyNode (n, NodeData uf _ outVars) =
-        (pNode n) ++ " [" ++ prettyOutVars outVars ++ "] -> "
-                  ++ prettyUnfolding uf
+        (pNode n) ++ " : [" ++ prettyOutVars outVars ++ "] -> "
+                  ++ prettyUnfolding uf ++ "\n"
   in concatMap prettyNode (Map.toList m)
 
 showProgramGraph :: (Show r, Show v, Show n) => ProgramGraph r v n -> String
