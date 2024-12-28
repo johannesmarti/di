@@ -3,7 +3,7 @@ module Main where
 import Data.Set as Set
 
 import qualified Atom 
-import ProgramGraph
+import Graph
 
 trivial :: [(Int, Unfolding Char Char Int, [Char])]
 trivial = [
@@ -11,7 +11,7 @@ trivial = [
 
 transitive :: [(Int, Unfolding Char Char Int, [Char])]
 transitive = [
-  (1, ProgramGraph.Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']),
+  (1, Graph.Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']),
 
   (2, Or (Set.fromList [1, 3]), ['x', 'y']),
   (3, Exists 'z' 4, ['x', 'y']),
@@ -24,7 +24,7 @@ transitive = [
   (6, Project 'x' 8, ['x', 'z', 'y']),
   (8, Assign 'z' 'x' 1, ['z', 'y']) ]
 
-fl :: (Ord v, Ord n) => [(n, Unfolding r v n, [v])] -> ProgramGraph r v n
+fl :: (Ord v, Ord n) => [(n, Unfolding r v n, [v])] -> Graph r v n
 fl = fromTupleList . (Prelude.map (\(a,b,c) -> (a,b, Set.fromList c)))
 
 main :: IO ()
@@ -32,5 +32,5 @@ main = let
     graphTrivial = fl trivial
     graphTransitive = fl transitive
   in do
-    putStrLn $ prettyProgramGraph graphTrivial
-    putStrLn $ prettyProgramGraph graphTransitive
+    putStrLn $ prettyGraph graphTrivial
+    putStrLn $ prettyGraph graphTransitive

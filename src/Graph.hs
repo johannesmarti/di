@@ -1,8 +1,8 @@
-module ProgramGraph (
+module Graph (
   Unfolding(..),
-  ProgramGraph,
+  Graph,
   fromTupleList,
-  prettyProgramGraph
+  prettyGraph
 ) where
 
 import Control.Exception (assert)
@@ -26,23 +26,23 @@ data NodeData r v n = NodeData {
   outputVariables :: Set v
 }
 
-data ProgramGraph r v n = ProgramGraph {dataMap :: (Map n (NodeData r v n))}
+data Graph r v n = Graph {dataMap :: (Map n (NodeData r v n))}
 
 
 -- basic accessing functions
 
-domain :: ProgramGraph r v n -> Set n
-domain (ProgramGraph m) = keysSet m
+domain :: Graph r v n -> Set n
+domain (Graph m) = keysSet m
 
-dataOfNode :: Ord n => ProgramGraph r v n -> n -> NodeData r v n
-dataOfNode (ProgramGraph m) node =
-  let err = error "node not in ProgramGraph"
+dataOfNode :: Ord n => Graph r v n -> n -> NodeData r v n
+dataOfNode (Graph m) node =
+  let err = error "node not in Graph"
   in fromMaybe err (Map.lookup node m)
 
-unfoldNode :: Ord n => ProgramGraph r v n -> n -> Unfolding r v n
+unfoldNode :: Ord n => Graph r v n -> n -> Unfolding r v n
 unfoldNode graph node = unfolding (dataOfNode graph node)
 
-outputVariablesOfNode :: Ord n => ProgramGraph r v n -> n -> Set v
+outputVariablesOfNode :: Ord n => Graph r v n -> n -> Set v
 outputVariablesOfNode graph node = outputVariables (dataOfNode graph node)
 
 nodesInUnfolding :: Ord n => Unfolding r v n -> Set n
@@ -53,16 +53,16 @@ nodesInUnfolding (Project v a) = Set.singleton a
 nodesInUnfolding (Assign v w a) = Set.singleton a
 nodesInUnfolding _ = Set.empty
 
-successorsOfNode :: Ord n => ProgramGraph r v n -> n -> Set n
+successorsOfNode :: Ord n => Graph r v n -> n -> Set n
 successorsOfNode graph node = nodesInUnfolding (unfoldNode graph node)
 
-predecessorsOfNode :: Ord n => ProgramGraph r v n -> n -> Set n
+predecessorsOfNode :: Ord n => Graph r v n -> n -> Set n
 predecessorsOfNode graph node = predecessors (dataOfNode graph node)
 
 
 -- checking the consistency of the data
 
-succPredInDom :: Ord n => ProgramGraph r v n -> Bool
+succPredInDom :: Ord n => Graph r v n -> Bool
 succPredInDom graph =
  all ((`isSubsetOf` dom) . succs) dom &&
  all ((`isSubsetOf` dom) . preds) dom where
@@ -76,7 +76,7 @@ converse dom fct v = Set.filter (\u -> v `Set.member` fct u) dom
 sameOnDom :: (Ord x, Eq y) => Set x -> (x -> y) -> (x -> y) -> Bool
 sameOnDom dom f g = all (\a -> f a == g a) dom
 
-succPredMatch :: Ord n => ProgramGraph r v n -> Bool
+succPredMatch :: Ord n => Graph r v n -> Bool
 succPredMatch graph = (sameOnDom dom (predecessorsOfNode graph) pred') where
   dom = domain graph
   pred' = converse dom (successorsOfNode graph)
@@ -93,7 +93,7 @@ outputVariablesFromInputVariables (Assign v w _) inVars =
   assert (not $ v `Set.member` inVars) $ Set.insert v (Set.delete w inVars)
 -- TODO: in pretty code these asserts where also checked as part of the bool computation
 
-outputVariablesCoherent :: (Ord v, Ord n) => ProgramGraph r v n -> Bool
+outputVariablesCoherent :: (Ord v, Ord n) => Graph r v n -> Bool
 outputVariablesCoherent graph =
     all checkVariablesAroundNode (Map.toList (dataMap graph)) where
   checkVariablesAroundNode (_, NodeData uf _ outVars) = let
@@ -116,7 +116,7 @@ outputVariablesCoherent graph =
 
 -- TODO: Should also check that renamed, bound and projected variables make
 -- sense. I am not yet sure how to do this well.
-isCoherent :: (Ord v, Ord n) => ProgramGraph r v n -> Bool
+isCoherent :: (Ord v, Ord n) => Graph r v n -> Bool
 isCoherent graph =
   succPredInDom graph &&
   succPredMatch graph &&
@@ -130,22 +130,22 @@ isNub list = length list == length (nub list)
 
 -- This function would have room for optimization
 fromTupleList :: (Ord v, Ord n) => [(n, Unfolding r v n, Set v)]
-                                   -> ProgramGraph r v n
+                                   -> Graph r v n
 fromTupleList tupleList = assert (isNub (Prelude.map (\(f,_,_) -> f) tupleList)) $
   let domSet = Set.fromList (Prelude.map (\(f,_,_) -> f) tupleList)
       ufList = Prelude.map (\(f,uf,_) -> (f,uf)) tupleList
       succs n = nodesInUnfolding (fromJust (Prelude.lookup n ufList))
       preds = converse domSet succs
       aList = Prelude.map (\(n,u,v) -> (n, NodeData u (preds n) v)) tupleList
-      graph = ProgramGraph (Map.fromList aList)
+      graph = Graph (Map.fromList aList)
   in assert (isCoherent graph) graph
 
 
 -- pretty printing
 
-prettyProgramGraphPrinter :: (r -> String) -> (v -> String) -> (n -> String)
-                             -> ProgramGraph r v n -> String
-prettyProgramGraphPrinter pRel pVar pNode (ProgramGraph m) =
+prettyGraphPrinter :: (r -> String) -> (v -> String) -> (n -> String)
+                             -> Graph r v n -> String
+prettyGraphPrinter pRel pVar pNode (Graph m) =
   let prettyOutVars set = intercalate ", " (Prelude.map pVar (Set.toList set))
       prettySet set = "{" ++
                        intercalate ", " (Prelude.map pNode (Set.toList set))
@@ -163,10 +163,10 @@ prettyProgramGraphPrinter pRel pVar pNode (ProgramGraph m) =
                   ++ prettyUnfolding uf ++ "\n"
   in concatMap prettyNode (Map.toList m)
 
-showProgramGraph :: (Show r, Show v, Show n) => ProgramGraph r v n -> String
-showProgramGraph = prettyProgramGraphPrinter show show show
+showGraph :: (Show r, Show v, Show n) => Graph r v n -> String
+showGraph = prettyGraphPrinter show show show
 
-prettyProgramGraph :: (Pretty r, Pretty v, Pretty n) =>
-                      ProgramGraph r v n -> String
-prettyProgramGraph = prettyProgramGraphPrinter pretty pretty pretty
+prettyGraph :: (Pretty r, Pretty v, Pretty n) =>
+                      Graph r v n -> String
+prettyGraph = prettyGraphPrinter pretty pretty pretty
 
