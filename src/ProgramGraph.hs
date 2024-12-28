@@ -12,11 +12,11 @@ import Data.Map.Strict as Map
 import Data.Maybe
 import Data.Set as Set
 
-import Program hiding (Atom)
-import qualified Program as P
+import Atom hiding (Atom)
+import qualified Atom as At
+import Pretty
 
-
-data Unfolding r v n = Atom (P.Atom r v) | Equality v v | Top | Bot |
+data Unfolding r v n = Atom (At.Atom r v) | Equality v v | Top | Bot |
                        And n n | Or n n | Exists v n | Project v n |
                        Assign v v n
 
@@ -82,7 +82,7 @@ succPredMatch graph = (sameOnDom dom (predecessorsOfNode graph) pred') where
   pred' = converse dom (successorsOfNode graph)
 
 outputVariablesFromInputVariables :: Ord v => Unfolding r v n -> Set v -> Set v
-outputVariablesFromInputVariables (Atom at) _ = Set.fromList $ P.arguments at
+outputVariablesFromInputVariables (Atom at) _ = Set.fromList $ arguments at
 outputVariablesFromInputVariables (Equality v w) _ = Set.fromList $ [v, w]
 outputVariablesFromInputVariables Top _ = Set.empty
 outputVariablesFromInputVariables Bot _ = Set.empty
@@ -149,7 +149,7 @@ prettyProgramGraphPrinter :: (r -> String) -> (v -> String) -> (n -> String)
                              -> ProgramGraph r v n -> String
 prettyProgramGraphPrinter pRel pVar pNode (ProgramGraph m) =
   let prettyOutVars set = intercalate ", " (Prelude.map pVar (Set.toList set))
-      prettyUnfolding (Atom dpAtom) = P.prettyAtom pRel pVar dpAtom
+      prettyUnfolding (Atom dpAtom) = prettyAtom pRel pVar dpAtom
       prettyUnfolding (Equality v w) = pVar v ++ " = " ++ pVar w
       prettyUnfolding Top = "top"
       prettyUnfolding Bot = "bot"

@@ -1,33 +1,16 @@
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs #-}
--- All of these pragmas need are needed to make String an instance of a type class. lol
-
 module Program (
-  Atom(Atom),
-  predicateSymbol,
-  arguments,
   Rule(Rule),
   headAtom,
   bodyAtoms,
   Program,
-  prettyAtom,
   prettyProgram,
   showProgram,
-  Pretty,
-  pretty,
 ) where
 
 import Data.List (intercalate)
 
-data Atom r v = Atom {
-  predicateSymbol :: r,
-  arguments       :: [v]
-}
-
-prettyAtom :: (r -> String) -> (v -> String) -> Atom r v -> String
-prettyAtom pRel pVar (Atom rs args) = pRel rs ++ " " ++
-                                                intercalate " " (map pVar args)
+import Atom
+import Pretty
 
 instance (Show r, Show v) => Show (Atom r v) where
   show = prettyAtom show show
@@ -56,15 +39,3 @@ showProgram = prettyProgramPrinter show show
 
 prettyProgram :: (Pretty r, Pretty v) => Program r v -> String
 prettyProgram = prettyProgramPrinter pretty pretty
-
-class Pretty p where
-  pretty :: p -> String
-
-instance Pretty Char where
-  pretty c = [c]
-
-instance Pretty String where
-  pretty = id
-
-instance Pretty Int where
-  pretty = show

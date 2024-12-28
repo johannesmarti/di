@@ -2,16 +2,16 @@ module Main where
 
 import Data.Set as Set
 
-import Program
+import qualified Atom 
 import ProgramGraph
 
 trivial :: [(Int, Unfolding Char Char Int, [Char])]
 trivial = [
-  (1, ProgramGraph.Atom (Program.Atom 'R' ['x', 'y']), ['x', 'y']) ]
+  (1, Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']) ]
 
 transitive :: [(Int, Unfolding Char Char Int, [Char])]
 transitive = [
-  (1, ProgramGraph.Atom (Program.Atom 'R' ['x', 'y']), ['x', 'y']),
+  (1, ProgramGraph.Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']),
 
   (2, Or 1 3, ['x', 'y']),
   (3, Exists 'z' 4, ['x', 'y']),
