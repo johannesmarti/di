@@ -22,10 +22,14 @@ instance (Pretty r, Pretty v) => Pretty (DefinedVariable r v) where
   pretty (PredicateVariable r i) = pretty r ++ show i
   pretty (QuantifiedVariable x) = pretty x
 
+argumentListForPredicate :: r -> Int -> [DefinedVariable r v]
+argumentListForPredicate predicate arity = 
+  [PredicateVariable predicate pos | pos <- [0..(arity - 1)]]
+
 outputVariablesForPredicate :: (Ord r, Ord v) => r -> Int
                                                  -> Set (DefinedVariable r v)
 outputVariablesForPredicate predicate arity =
-  Set.fromList [PredicateVariable predicate pos | pos <- [0..(arity - 1)]]
+  Set.fromList $ argumentListForPredicate predicate arity
 
 -- This is a partial input to the fromTupleList function that constructs a Graph
 type NodeDefinitions r v =
@@ -48,6 +52,14 @@ assignInts set = do
   ascList <- traverse makePair (Set.toAscList set)
   return (Map.fromDistinctAscList ascList)
 
+generateAtomNode :: (Ord r, Ord v) => (r -> Int) -> (r, Int)
+                    -> ((Int, Unfolding r (DefinedVariable r v) Int, Set (DefinedVariable r v)))
+generateAtomNode assignInt (predicate, arity) =
+  (assignInt predicate, Graph.Atom atom, outVars) where
+    argList = argumentListForPredicate predicate arity
+    atom = At.Atom predicate argList
+    outVars = Set.fromList argList
+
 processHeadArgumentList :: (Ord r, Ord v) =>
                            Atom r v
                            -> (Map v (DefinedVariable r v), [(r, v)])
@@ -58,7 +70,7 @@ processHeadArgumentList = undefined
  -- instance R x y :- which becomes R r0 r1 :- r0 = r1 
 
 {-
-What to computer here?
+What to compute here?
     assignmnet from new atom variables to old varialbes.
     if one old varialbe goes to multple atom variables then the
 additional atom variables need to be quantified and equaltiesed...
@@ -71,10 +83,6 @@ additional atom variables need to be quantified and equaltiesed...
                         exists r3 . r3 = r1 and continuation
 
 -}
-weakenContext :: Int -> 
-                 FreshIntState (Int, [(Int, Unfolding r v Int, Set v)])
-weakenContext = undefined
-
 embedEquality :: Ord v => Set v -> (v, v)
                  -> FreshIntState (Int, [(Int, Unfolding r v Int, Set v)])
 embedEquality context (a, b) = assert (a /= b) $
@@ -126,10 +134,16 @@ bodyAtomWorker predInfo innerNode ((var, pos):rest) env =
       let newDefinition = (newNode, Assign newVar removedVar nextNode, outVars)
       return (newNode, outVars, newDefinition : nextDefs, used)
 
-
-nodesForBodyAtom :: Ord v => Map v (DefinedVariable r v) -> Atom r v
-                             -> FreshIntState (Int, NodeDefinitions r v)
-nodesForBodyAtom varMap atom = undefined
+nodesForBodyAtom :: (Ord r, Ord v) => (r -> Int) -> Atom r v
+                                      -> FreshIntState (Int,
+                                                        NodeDefinitions r v,
+                                                        Set v)
+nodesForBodyAtom nodeMap (At.Atom predicate args) = let
+    projectOut (a,b,c,d) = (a,c,d)
+    arity = length args
+    node = nodeMap predicate
+    posArgs = zip args [0..]
+  in fmap projectOut (bodyAtomWorker (predicate, arity) node posArgs Map.empty)
 
 nodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
                                   -> FreshIntState (Int, NodeDefinitions r v)
@@ -157,23 +171,28 @@ nodesForDefinedPredicate predicateToNode program (predicate, arity) = do
   let allDefinitions = concat (Prelude.map snd l)
   let headNode = predicateToNode predicate
   let outVars = outputVariablesForPredicate predicate arity
-  let topLevelDefinition = (headNode, And (Set.fromList topLevelNodes), outVars)
+  let topLevelDefinition = (headNode, Or (Set.fromList topLevelNodes), outVars)
   return $ topLevelDefinition : allDefinitions
 
-programToGraphWithTrace :: (Ord r, Ord v) => Schema r -> Program r v
+programToGraphWithTrace :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
                             -> (Graph r (DefinedVariable r v) Int, Map r Int)
-programToGraphWithTrace schema program =
+programToGraphWithTrace (definedSchema, baseSchema) program =
   evalState computation 0 where
-    definedPredicates = Map.keysSet schema
+    basePredicates = Map.keysSet baseSchema
+    definedPredicates = Map.keysSet definedSchema
     computation = do
+      baseMap <- assignInts basePredicates
+      let baseDefinitions = Prelude.map (generateAtomNode (\p -> baseMap ! p))
+                                        (Map.toList baseSchema)
       definedMap <- assignInts definedPredicates
-      let predicateToNode p = definedMap ! p
+      let combinedMap = definedMap `Map.union` baseMap
+      let predicateToNode p = combinedMap ! p
       let mapper = nodesForDefinedPredicate predicateToNode program
-      allNodeDefinitions <- fmap concat $ mapM mapper (Map.toList schema)
+      allNodeDefinitions <- fmap concat $ mapM mapper (Map.toList definedSchema)
       let graph = Graph.fromTupleList allNodeDefinitions
-      return (graph, definedMap)
+      return (graph, combinedMap)
 
-programToGraph :: (Ord r, Ord v) => Schema r -> Program r v
+programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
                                     -> Graph r (DefinedVariable r v) Int
 programToGraph schema program =
   fst $ programToGraphWithTrace schema program
