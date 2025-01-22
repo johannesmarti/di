@@ -60,29 +60,6 @@ generateAtomNode assignInt (predicate, arity) =
     atom = At.Atom predicate argList
     outVars = Set.fromList argList
 
-processHeadArgumentList :: (Ord r, Ord v) =>
-                           Atom r v
-                           -> (Map v (DefinedVariable r v), [(r, v)])
-processHeadArgumentList = undefined
- -- this is going to be applied to argument list of the head and
- -- defines a mapping from some of the variables to DefinedVariables. Plus
- -- we are going to get the equalities that need to be estaplished in for
- -- instance R x y :- which becomes R r0 r1 :- r0 = r1 
-
-{-
-What to compute here?
-    assignmnet from new atom variables to old varialbes.
-    if one old varialbe goes to multple atom variables then the
-additional atom variables need to be quantified and equaltiesed...
-
-  Examples:
-
-    R x y h2 y
-    becomes r0 |-> x, r1 |-> y, r2 |-> h2, r3 |-> y
-   and then pi (range of Assignment). x := r0 . y := r1 . h2 := r2 .
-                        exists r3 . r3 = r1 and continuation
-
--}
 embedEquality :: Ord v => Set v -> (v, v)
                  -> FreshIntState (Int, [(Int, Unfolding r v Int, Set v)])
 embedEquality context (a, b) = assert (a /= b) $
@@ -144,6 +121,24 @@ nodesForBodyAtom nodeMap (At.Atom predicate args) = let
     node = nodeMap predicate
     posArgs = zip args [0..]
   in fmap projectOut (bodyAtomWorker (predicate, arity) node posArgs Map.empty)
+
+someFunction :: (r -> Int) -> FreshIntState ()
+someFunction nodeMap = do
+  let mapper atom = nodesForBodyAtom nodeMap atom
+  tupleList <- mapM mapper (bodyAtoms rule)
+  let usedVariables = Prelude.foldl Set.union (Prelude.map (\(_,_,s) -> s) tupleList)
+  return ()
+
+-- TODO
+processHeadArgumentList :: (Ord r, Ord v) =>
+                           Atom r v
+                           -> (Map v (DefinedVariable r v), [(r, v)])
+processHeadArgumentList = undefined
+ -- this is going to be applied to argument list of the head and
+ -- defines a mapping from some of the variables to DefinedVariables. Plus
+ -- we are going to get the equalities that need to be estaplished in for
+ -- instance R x y :- which becomes R r0 r1 :- r0 = r1
+
 
 nodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
                                   -> FreshIntState (Int, NodeDefinitions r v)
