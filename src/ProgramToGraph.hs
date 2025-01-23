@@ -60,6 +60,10 @@ generateAtomNode assignInt (predicate, arity) =
     atom = At.Atom predicate argList
     outVars = Set.fromList argList
 
+project :: Ord v => [v] -> Int -> FreshIntState (Int, [(Int, Unfolding r v Int, Set v)])
+project varsToProject continuationNode = undefined
+  -- How to handle the outputVariables here?
+
 embedEquality :: Ord v => Set v -> (v, v)
                  -> FreshIntState (Int, [(Int, Unfolding r v Int, Set v)])
 embedEquality context (a, b) = assert (a /= b) $
