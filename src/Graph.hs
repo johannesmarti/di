@@ -2,6 +2,8 @@ module Graph (
   Unfolding(..),
   Graph,
   fromTupleList,
+  Graph.fromSet,
+  fromMap,
   prettyGraph
 ) where
 
@@ -141,6 +143,21 @@ fromTupleList tupleList = assert (isNub (Prelude.map (\(f,_,_) -> f) tupleList))
       graph = Graph (Map.fromList aList)
   in assert (isCoherent graph) graph
 
+fromSet :: (Ord v, Ord n) => Set n -> (n -> (Unfolding r v n, Set v))
+                             -> Graph r v n
+fromSet domSet f = let
+    succs = nodesInUnfolding . fst . f
+    preds = converse domSet succs
+    graph = Graph (Map.fromSet (\n -> let (uf, ov) = f n in NodeData uf (preds n) ov) domSet)
+  in assert (isCoherent graph) graph
+
+fromMap :: (Ord v, Ord n) => Map n (Unfolding r v n, Set v) -> Graph r v n
+fromMap m = let
+    domSet = Map.keysSet m
+    succs n = nodesInUnfolding . fst $ m ! n
+    preds = converse domSet succs
+    graph = Graph (mapWithKey (\n (u, s) -> NodeData u (preds n) s) m)
+  in assert (isCoherent graph) graph
 
 -- pretty printing
 

@@ -6,6 +6,7 @@ import Control.Exception (assert)
 
 import Control.Monad.State.Strict
 import Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import Data.Set as Set
 
 import Atom as At
@@ -35,6 +36,46 @@ outputVariablesForPredicate predicate arity =
 type NodeDefinitions r v =
   [(Int, Unfolding r (DefinedVariable r v) Int, Set (DefinedVariable r v))]
 
+data PartialGraphData r v = PartialGraphData {
+  outputVarMap :: Map Int (Set v),
+  unfoldingMap :: Map Int (Unfolding r v Int)
+}
+
+intoGraph :: Ord v => PartialGraphData r v -> Graph r v Int
+intoGraph pgd = let
+    ovs = outputVarMap pgd
+    ufs = unfoldingMap pgd
+    dom = assert (keysSet ovs == keysSet ufs) $ keysSet ovs
+    f n = (ufs ! n, ovs ! n)
+  in Graph.fromSet dom f
+
+type GraphConstructor r v x = State (PartialGraphData r v) x
+
+freshInt :: GraphConstructor r v Int
+freshInt = do
+  cs <- get
+  return $ fromMaybe 0 (fmap ((+ 1) . fst) (Map.lookupMax (outputVarMap cs)))
+
+addNode :: Set v -> GraphConstructor r v Int
+addNode outputVariables = do
+  n <- freshInt
+  cs <- get
+  put $ cs { outputVarMap = Map.insert n outputVariables (outputVarMap cs) }
+  return n
+
+setNode :: Int -> Unfolding r v Int -> GraphConstructor r v ()
+setNode n uf = do
+  cs <- get
+  put $ assert (n `Map.member` (outputVarMap cs)) $
+        assert (not (n `Map.member` (unfoldingMap cs))) $
+        assert (makeSureTheComputed ouputVariables would match) $
+        (cs { unfoldingMap = Map.insert n uf (unfoldingMap cs) })
+
+constructNode :: Unfolding r v Int -> GraphConstructor r v Int
+constructNode uf = undefined
+  -- here I want to use the code in inputVariables coherent in a smart way.
+
+{-
 
 type FreshIntState x = State Int x
 
@@ -195,3 +236,5 @@ programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
                                     -> Graph r (DefinedVariable r v) Int
 programToGraph schema program =
   fst $ programToGraphWithTrace schema program
+
+-}
