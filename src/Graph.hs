@@ -1,6 +1,7 @@
 module Graph (
   Unfolding(..),
   Graph,
+  outputVariablesFromUnfolding,
   fromTupleList,
   Graph.fromSet,
   fromMap,
@@ -96,16 +97,31 @@ outputVariablesFromInputVariables (Assign v w _) inVars =
   assert (v `Set.member` inVars) $ Set.insert v (Set.delete w inVars)
 -- TODO: in pretty code these asserts where also checked as part of the bool computation
 
+inputVariablesFromUnfolding :: (Ord v, Ord n) =>
+                                (n -> Set v) -> Unfolding r v n -> Maybe (Set v)
+inputVariablesFromUnfolding outVars uf =
+  inputVariablesFromSuccessors outVars (nodesInUnfolding uf)
+
+inputVariablesFromSuccessors :: (Ord v, Ord n) => (n -> Set v) -> Set n
+                                                  -> Maybe (Set v)
+inputVariablesFromSuccessors outVars succsSet =
+  fmap outVars (Set.lookupMin succsSet)
+
+outputVariablesFromUnfolding :: (Ord v, Ord n) =>
+                                (n -> Set v) -> Unfolding r v n -> Set v
+outputVariablesFromUnfolding outVars uf =
+  outputVariablesFromInputVariables uf . fromJust $
+        inputVariablesFromUnfolding outVars uf
+
 outputVariablesCoherent :: (Ord v, Ord n) => Graph r v n -> Bool
 outputVariablesCoherent graph =
     all checkVariablesAroundNode (Map.toList (dataMap graph)) where
   checkVariablesAroundNode (_, NodeData uf _ outVars) = let
       maybeInputVars = let succsSet = nodesInUnfolding uf
-                           someNode = Set.lookupMin succsSet
-                           someInVars = fmap (outputVariablesOfNode graph)
-                                             someNode 
-                           allInVars = Prelude.map (outputVariablesOfNode graph)
-                                                   (Set.toList succsSet)
+                           outVars = outputVariablesOfNode graph
+                           someInVars = inputVariablesFromSuccessors outVars
+                                                                     succsSet
+                           allInVars = Prelude.map outVars (Set.toList succsSet)
         in case someInVars of
              Just set -> if (all (== set) allInVars)
                            then Just set
