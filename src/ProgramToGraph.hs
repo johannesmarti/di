@@ -63,17 +63,22 @@ addNode outputVariables = do
   put $ cs { outputVarMap = Map.insert n outputVariables (outputVarMap cs) }
   return n
 
-setNode :: Int -> Unfolding r v Int -> GraphConstructor r v ()
+setNode :: Ord v => Int -> Unfolding r v Int -> GraphConstructor r v ()
 setNode n uf = do
-  cs <- get
-  put $ assert (n `Map.member` (outputVarMap cs)) $
-        assert (not (n `Map.member` (unfoldingMap cs))) $
-        assert (makeSureTheComputed ouputVariables would match) $
-        (cs { unfoldingMap = Map.insert n uf (unfoldingMap cs) })
+  PartialGraphData outVarMap ufMap <- get
+  put $ assert (n `Map.member` outVarMap) $
+        assert (not (n `Map.member` ufMap)) $
+        assert (outVarMap Map.! n == outputVariablesFromUnfolding
+                                        (outVarMap Map.!) uf) $
+        PartialGraphData outVarMap (Map.insert n uf ufMap)
 
-constructNode :: Unfolding r v Int -> GraphConstructor r v Int
-constructNode uf = undefined
-  -- here I want to use the code in inputVariables coherent in a smart way.
+constructNode :: Ord v => Unfolding r v Int -> GraphConstructor r v Int
+constructNode uf = do
+  PartialGraphData outVarMap _ <- get
+  let outVars = outputVariablesFromUnfolding (outVarMap Map.!) uf
+  n <- addNode outVars
+  setNode n uf
+  return n
 
 {-
 
