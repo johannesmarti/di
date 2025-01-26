@@ -15,31 +15,13 @@ import Pretty
 import Program
 import Schema
 
-data DefinedVariable r v = PredicateVariable r Int |
-                           QuantifiedVariable v
-  deriving (Eq, Ord)
-
-instance (Pretty r, Pretty v) => Pretty (DefinedVariable r v) where
-  pretty (PredicateVariable r i) = pretty r ++ show i
-  pretty (QuantifiedVariable x) = pretty x
-
-argumentListForPredicate :: r -> Int -> [DefinedVariable r v]
-argumentListForPredicate predicate arity = 
-  [PredicateVariable predicate pos | pos <- [0..(arity - 1)]]
-
-outputVariablesForPredicate :: (Ord r, Ord v) => r -> Int
-                                                 -> Set (DefinedVariable r v)
-outputVariablesForPredicate predicate arity =
-  Set.fromList $ argumentListForPredicate predicate arity
-
--- This is a partial input to the fromTupleList function that constructs a Graph
-type NodeDefinitions r v =
-  [(Int, Unfolding r (DefinedVariable r v) Int, Set (DefinedVariable r v))]
-
 data PartialGraphData r v = PartialGraphData {
   outputVarMap :: Map Int (Set v),
   unfoldingMap :: Map Int (Unfolding r v Int)
 }
+
+emptyGraphData :: PartialGraphData r v
+emptyGraphData = PartialGraphData Map.empty Map.empty
 
 intoGraph :: Ord v => PartialGraphData r v -> Graph r v Int
 intoGraph pgd = let
@@ -68,17 +50,35 @@ setNode n uf = do
   PartialGraphData outVarMap ufMap <- get
   put $ assert (n `Map.member` outVarMap) $
         assert (not (n `Map.member` ufMap)) $
-        assert (outVarMap Map.! n == outputVariablesFromUnfolding
-                                        (outVarMap Map.!) uf) $
+        assert (outVarMap ! n == outputVariablesFromUnfolding (outVarMap !) uf) $
         PartialGraphData outVarMap (Map.insert n uf ufMap)
 
 constructNode :: Ord v => Unfolding r v Int -> GraphConstructor r v Int
 constructNode uf = do
   PartialGraphData outVarMap _ <- get
-  let outVars = outputVariablesFromUnfolding (outVarMap Map.!) uf
+  let outVars = outputVariablesFromUnfolding (outVarMap !) uf
   n <- addNode outVars
   setNode n uf
   return n
+
+data DefinedVariable r v = PredicateVariable r Int |
+                           QuantifiedVariable v
+  deriving (Eq, Ord)
+
+instance (Pretty r, Pretty v) => Pretty (DefinedVariable r v) where
+  pretty (PredicateVariable r i) = pretty r ++ show i
+  pretty (QuantifiedVariable x) = pretty x
+
+argumentListForPredicate :: r -> Int -> [DefinedVariable r v]
+argumentListForPredicate predicate arity = 
+  [PredicateVariable predicate pos | pos <- [0..(arity - 1)]]
+
+outputVariablesForPredicate :: (Ord r, Ord v) => r -> Int
+                                                 -> Set (DefinedVariable r v)
+outputVariablesForPredicate predicate arity =
+  Set.fromList $ argumentListForPredicate predicate arity
+
+type Constructor r v x = GraphConstructor r (DefinedVariable r v) x
 
 {-
 
@@ -90,13 +90,6 @@ freshInt = do
   put (i + 1)
   return i
 
--- this might be a shitty function. not sure how to make this better
-assignInts :: Ord r => Set r -> FreshIntState (Map r Int)
-assignInts set = do
-  let makePair predicate = do i <- freshInt
-                              return (predicate, i)
-  ascList <- traverse makePair (Set.toAscList set)
-  return (Map.fromDistinctAscList ascList)
 
 generateAtomNode :: (Ord r, Ord v) => (r -> Int) -> (r, Int)
                     -> ((Int, Unfolding r (DefinedVariable r v) Int, Set (DefinedVariable r v)))
@@ -218,28 +211,55 @@ nodesForDefinedPredicate predicateToNode program (predicate, arity) = do
   let outVars = outputVariablesForPredicate predicate arity
   let topLevelDefinition = (headNode, Or (Set.fromList topLevelNodes), outVars)
   return $ topLevelDefinition : allDefinitions
+-}
 
-programToGraphWithTrace :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
-                            -> (Graph r (DefinedVariable r v) Int, Map r Int)
-programToGraphWithTrace (definedSchema, baseSchema) program =
-  evalState computation 0 where
-    basePredicates = Map.keysSet baseSchema
-    definedPredicates = Map.keysSet definedSchema
-    computation = do
-      baseMap <- assignInts basePredicates
-      let baseDefinitions = Prelude.map (generateAtomNode (\p -> baseMap ! p))
-                                        (Map.toList baseSchema)
-      definedMap <- assignInts definedPredicates
-      let combinedMap = definedMap `Map.union` baseMap
-      let predicateToNode p = combinedMap ! p
-      let mapper = nodesForDefinedPredicate predicateToNode program
-      allNodeDefinitions <- fmap concat $ mapM mapper (Map.toList definedSchema)
-      let graph = Graph.fromTupleList allNodeDefinitions
-      return (graph, combinedMap)
+constructBasePredicates :: (Ord r, Ord v) => Schema r
+                                          -> Constructor r v (Map r Int)
+constructBasePredicates schema = traverseWithKey mapper schema where
+  mapper predicate arity = let
+      argList = argumentListForPredicate predicate arity
+      atom = At.Atom predicate argList
+    in constructNode (Graph.Atom atom)
+
+addDefinedPredicates :: (Ord r, Ord v) => Schema r
+                                          -> Constructor r v (Map r Int)
+addDefinedPredicates schema = traverseWithKey mapper schema where
+  mapper predicate arity = addNode (outputVariablesForPredicate predicate arity)
+
+nodesForDefinedPredicate :: (Ord r, Ord v) =>
+                            (r -> Int) -> Program r v -> r -> Int
+                            -> Constructor r v ()
+nodesForDefinedPredicate predicateToNode program predicate arity = undefined
+{-
+nodesForDefinedPredicate predicateToNode program (predicate, arity) = do
+  let rules = rulesForPredicate program predicate
+  l <- mapM (nodesForRule predicateToNode) rules
+  let topLevelNodes = Prelude.map fst l
+  let allDefinitions = concat (Prelude.map snd l)
+  let headNode = predicateToNode predicate
+  let outVars = outputVariablesForPredicate predicate arity
+  let topLevelDefinition = (headNode, Or (Set.fromList topLevelNodes), outVars)
+  return $ topLevelDefinition : allDefinitions
+-}
+
+constructGraphForProgram :: (Ord r, Ord v) =>
+                                (Schema r, Schema r) -> Program r v
+                                -> Constructor r v (Map r Int)
+constructGraphForProgram (definedSchema, baseSchema) program = do
+  baseMap <- constructBasePredicates baseSchema
+  definedMap <- addDefinedPredicates definedSchema
+  let combinedMap = definedMap `Map.union` baseMap
+  let mapper = nodesForDefinedPredicate (combinedMap !) program
+  traverseWithKey mapper definedSchema
+  return combinedMap
+
+programToGraphWithTrace :: (Ord r, Ord v) =>
+                           (Schema r, Schema r) -> Program r v
+                           -> (Graph r (DefinedVariable r v) Int, Map r Int)
+programToGraphWithTrace schemas program = (intoGraph graphData, m) where
+  (m, graphData) = runState (constructGraphForProgram schemas program)
+                            emptyGraphData
 
 programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
                                     -> Graph r (DefinedVariable r v) Int
-programToGraph schema program =
-  fst $ programToGraphWithTrace schema program
-
--}
+programToGraph schemas program = fst $ programToGraphWithTrace schemas program
