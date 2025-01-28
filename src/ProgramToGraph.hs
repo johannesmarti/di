@@ -81,24 +81,6 @@ outputVariablesForPredicate predicate arity =
 type Constructor r v x = GraphConstructor r (DefinedVariable r v) x
 
 {-
-
-type FreshIntState x = State Int x
-
-freshInt :: FreshIntState Int
-freshInt = do
-  i <- get
-  put (i + 1)
-  return i
-
-
-generateAtomNode :: (Ord r, Ord v) => (r -> Int) -> (r, Int)
-                    -> ((Int, Unfolding r (DefinedVariable r v) Int, Set (DefinedVariable r v)))
-generateAtomNode assignInt (predicate, arity) =
-  (assignInt predicate, Graph.Atom atom, outVars) where
-    argList = argumentListForPredicate predicate arity
-    atom = At.Atom predicate argList
-    outVars = Set.fromList argList
-
 project :: Ord v => [v] -> Int -> FreshIntState (Int, [(Int, Unfolding r v Int, Set v)])
 project varsToProject continuationNode = undefined
   -- How to handle the outputVariables here?
@@ -182,7 +164,6 @@ processHeadArgumentList = undefined
  -- we are going to get the equalities that need to be estaplished in for
  -- instance R x y :- which becomes R r0 r1 :- r0 = r1
 
-
 constructNodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
                                   -> FreshIntState (Int, NodeDefinitions r v)
 constructNodesForRule predicateToNode rule = do
@@ -210,7 +191,7 @@ addDefinedPredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = addNode (outputVariablesForPredicate predicate arity)
 
 constructNodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
-                                          -> Constructor r v Int
+                                           -> Constructor r v Int
 constructNodesForRule predicateToNode rule = undefined
 
 nodesForDefinedPredicate :: (Ord r, Ord v) =>
@@ -218,8 +199,7 @@ nodesForDefinedPredicate :: (Ord r, Ord v) =>
 nodesForDefinedPredicate predicateToNode program predicate = do
   let rules = rulesForPredicate program predicate
   topLevelNodes <- mapM (constructNodesForRule predicateToNode) rules
-  let headNode = predicateToNode predicate
-  setNode headNode (Or (Set.fromList topLevelNodes))
+  setNode (predicateToNode predicate) (Or (Set.fromList topLevelNodes))
 
 constructGraphForProgram :: (Ord r, Ord v) =>
                                 (Schema r, Schema r) -> Program r v
