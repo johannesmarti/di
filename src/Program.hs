@@ -2,6 +2,7 @@ module Program (
   Rule(Rule),
   headAtom,
   bodyAtoms,
+  rulesForPredicate,
   Program,
   prettyProgram,
   showProgram,
@@ -20,13 +21,16 @@ data Rule r v = Rule {
   bodyAtoms :: [Atom r v]
 }
 
+rulesForPredicate :: Eq r => Program r v -> r -> [Rule r v]
+rulesForPredicate program predicate =
+  filter ((== predicate) . predicateSymbol . headAtom) program
+
 prettyRule :: (r -> String) -> (v -> String) -> Rule r v -> String
 prettyRule pRel pVar (Rule h b) = let pAt = prettyAtom pRel pVar
   in pAt h ++ " <= " ++ intercalate ", " (map pAt b)
 
 instance (Show r, Show v) => Show (Rule r v) where
   show = prettyRule show show
-
 
 type Program r v = [Rule r v]
 

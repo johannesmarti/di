@@ -183,9 +183,9 @@ processHeadArgumentList = undefined
  -- instance R x y :- which becomes R r0 r1 :- r0 = r1
 
 
-nodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
+constructNodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
                                   -> FreshIntState (Int, NodeDefinitions r v)
-nodesForRule predicateToNode rule = do
+constructNodesForRule predicateToNode rule = do
   let nodeDefinitions = undefined
   let ha = headAtom rule
   let headPredicate = predicateSymbol ha
@@ -194,23 +194,6 @@ nodesForRule predicateToNode rule = do
   headNode <- freshInt
   let topLevelDefinition = (headNode, And Set.empty, outVars)
   return (headNode, nodeDefinitions)
-
-rulesForPredicate :: Eq r => Program r v -> r -> [Rule r v]
-rulesForPredicate program predicate =
-  Prelude.filter ((== predicate) . At.predicateSymbol . headAtom) program
-
-nodesForDefinedPredicate :: (Ord r, Ord v) =>
-                            (r -> Int) -> Program r v -> (r, Int)
-                            -> FreshIntState (NodeDefinitions r v)
-nodesForDefinedPredicate predicateToNode program (predicate, arity) = do
-  let rules = rulesForPredicate program predicate
-  l <- mapM (nodesForRule predicateToNode) rules
-  let topLevelNodes = Prelude.map fst l
-  let allDefinitions = concat (Prelude.map snd l)
-  let headNode = predicateToNode predicate
-  let outVars = outputVariablesForPredicate predicate arity
-  let topLevelDefinition = (headNode, Or (Set.fromList topLevelNodes), outVars)
-  return $ topLevelDefinition : allDefinitions
 -}
 
 constructBasePredicates :: (Ord r, Ord v) => Schema r
@@ -226,21 +209,17 @@ addDefinedPredicates :: (Ord r, Ord v) => Schema r
 addDefinedPredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = addNode (outputVariablesForPredicate predicate arity)
 
+constructNodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
+                                          -> Constructor r v Int
+constructNodesForRule predicateToNode rule = undefined
+
 nodesForDefinedPredicate :: (Ord r, Ord v) =>
-                            (r -> Int) -> Program r v -> r -> Int
-                            -> Constructor r v ()
-nodesForDefinedPredicate predicateToNode program predicate arity = undefined
-{-
-nodesForDefinedPredicate predicateToNode program (predicate, arity) = do
+                            (r -> Int) -> Program r v -> r -> Constructor r v ()
+nodesForDefinedPredicate predicateToNode program predicate = do
   let rules = rulesForPredicate program predicate
-  l <- mapM (nodesForRule predicateToNode) rules
-  let topLevelNodes = Prelude.map fst l
-  let allDefinitions = concat (Prelude.map snd l)
+  topLevelNodes <- mapM (constructNodesForRule predicateToNode) rules
   let headNode = predicateToNode predicate
-  let outVars = outputVariablesForPredicate predicate arity
-  let topLevelDefinition = (headNode, Or (Set.fromList topLevelNodes), outVars)
-  return $ topLevelDefinition : allDefinitions
--}
+  setNode headNode (Or (Set.fromList topLevelNodes))
 
 constructGraphForProgram :: (Ord r, Ord v) =>
                                 (Schema r, Schema r) -> Program r v
@@ -250,7 +229,7 @@ constructGraphForProgram (definedSchema, baseSchema) program = do
   definedMap <- addDefinedPredicates definedSchema
   let combinedMap = definedMap `Map.union` baseMap
   let mapper = nodesForDefinedPredicate (combinedMap !) program
-  traverseWithKey mapper definedSchema
+  _ <- traverse mapper (keys definedSchema)
   return combinedMap
 
 programToGraphWithTrace :: (Ord r, Ord v) =>
