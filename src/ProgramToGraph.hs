@@ -98,20 +98,20 @@ addDefinedPredicates :: (Ord r, Ord v) => Schema r
 addDefinedPredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = addNode (outputVariablesForPredicate predicate arity)
 
-projectSimple :: Ord v => [v] -> Int -> GraphConstructor r v Int
-projectSimple [] continuationNode = return continuationNode
-projectSimple (nextVar:rest) continuationNode = do
+projectSimpleRec :: Ord v => [v] -> Int -> GraphConstructor r v Int
+projectSimpleRec [] continuationNode = return continuationNode
+projectSimpleRec (nextVar:rest) continuationNode = do
   inner <- project rest continuationNode
   constructNode (Project nextVar inner)
 
-projectTail :: Ord v => [v] -> Int -> GraphConstructor r v Int
-projectTail [] continuationNode = return continuationNode
-projectTail (nextVar:rest) continuationNode = do
+projectTailRec :: Ord v => [v] -> Int -> GraphConstructor r v Int
+projectTailRec [] continuationNode = return continuationNode
+projectTailRec (nextVar:rest) continuationNode = do
   inner <- constructNode (Project nextVar continuationNode)
   project rest inner
   
 project :: Ord v => [v] -> Int -> GraphConstructor r v Int
-project = projectTail
+project = projectTailRec
 
 embedEquality :: Ord v => Set v -> (v, v)
                  -> GraphConstructor r v Int
