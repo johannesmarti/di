@@ -98,22 +98,29 @@ addDefinedPredicates :: (Ord r, Ord v) => Schema r
 addDefinedPredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = addNode (outputVariablesForPredicate predicate arity)
 
-project :: Ord v => [v] -> Int -> Constructor r v (Int, [(Int, Unfolding r v Int, Set v)])
-project varsToProject continuationNode = undefined
-  -- How to handle the outputVariables here?
+projectSimple :: Ord v => [v] -> Int -> GraphConstructor r v Int
+projectSimple [] continuationNode = return continuationNode
+projectSimple (nextVar:rest) continuationNode = do
+  inner <- project rest continuationNode
+  constructNode (Project nextVar inner)
+
+projectTail :: Ord v => [v] -> Int -> GraphConstructor r v Int
+projectTail [] continuationNode = return continuationNode
+projectTail (nextVar:rest) continuationNode = do
+  inner <- constructNode (Project nextVar continuationNode)
+  project rest inner
+  
+project :: Ord v => [v] -> Int -> GraphConstructor r v Int
+project = projectTail
 
 embedEquality :: Ord v => Set v -> (v, v)
                  -> GraphConstructor r v Int
 embedEquality context (a, b) = assert (a /= b) $
                                assert (a `Set.member` context) $
                                assert (b `Set.member` context) $ let
-    worker n [] = return n
-    worker n (nextVar:rest) = do
-      newNode <- constructNode (Project nextVar n)
-      worker newNode rest
     varsToProject = Set.toList . Set.delete a . Set.delete b $ context
   in do eqNode <- constructNode (Equality a b)
-        worker eqNode varsToProject
+        project varsToProject eqNode
 
 bodyAtomWorker :: (Ord r, Ord v) =>
                     r -> Int -> [(v, Int)] -> Map v Int
@@ -138,25 +145,32 @@ bodyAtomWorker predicate innerNode ((var, pos):rest) env =
       newNode <- constructNode (Assign newVar removedVar nextNode)
       return (newNode, used)
 
-{-
 nodesForBodyAtom :: (Ord r, Ord v) => (r -> Int) -> Atom r v
-                                      -> FreshIntState (Int,
-                                                        NodeDefinitions r v,
-                                                        Set v)
+                                      -> Constructor r v (Int, Set v)
 nodesForBodyAtom nodeMap (At.Atom predicate args) = let
-    projectOut (a,b,c,d) = (a,c,d)
-    arity = length args
     node = nodeMap predicate
     posArgs = zip args [0..]
-  in fmap projectOut (bodyAtomWorker (predicate, arity) node posArgs Map.empty)
+  in bodyAtomWorker predicate node posArgs Map.empty
 
-someFunction :: (r -> Int) -> FreshIntState ()
-someFunction nodeMap = do
+embed :: (Ord r, Ord v) => Set v -> Set v -> Int -> Constructor r v Int
+embed outerSet innerSet = let
+    diff = outerSet `Set.difference` innerSet
+    varsToProject = Prelude.map QuantifiedVariable . Set.toList $ diff
+  in project varsToProject
+
+bodyConjunction :: (Ord r, Ord v) => (r -> Int) -> [Atom r v]
+                                     -> Constructor r v (Int, Set v)
+bodyConjunction nodeMap bodyAtoms = do
   let mapper atom = nodesForBodyAtom nodeMap atom
-  tupleList <- mapM mapper (bodyAtoms rule)
-  let usedVariables = Prelude.foldl Set.union (Prelude.map (\(_,_,s) -> s) tupleList)
-  return ()
+  tupleList <- mapM mapper bodyAtoms
+  let usedVariables = Prelude.foldl Set.union Set.empty
+                                    (Prelude.map snd tupleList)
+  let embedder = uncurry (flip (embed usedVariables))
+  embedded <- traverse embedder tupleList
+  conjunction <- constructNode (And (Set.fromList embedded))
+  return (conjunction, usedVariables)
 
+{-
 -- TODO
 processHeadArgumentList :: (Ord r, Ord v) =>
                            Atom r v
