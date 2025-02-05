@@ -4,6 +4,7 @@ module ProgramToGraph (
 
 import Control.Exception (assert)
 
+import Data.Foldable (foldlM)
 import Control.Monad.State.Strict
 import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -14,6 +15,8 @@ import Graph
 import Pretty
 import Program
 import Schema
+
+type Node = Int
 
 data PartialGraphData r v = PartialGraphData {
   outputVarMap :: Map Int (Set v),
@@ -122,35 +125,41 @@ embedEquality context (a, b) = assert (a /= b) $
   in do eqNode <- constructNode (Equality a b)
         project varsToProject eqNode
 
-bodyAtomWorker :: (Ord r, Ord v) =>
-                    r -> Int -> [(v, Int)] -> Map v Int
-                    -> Constructor r v (Int, Set v)
-bodyAtomWorker _ innerNode [] env = return (innerNode, keysSet env)
-bodyAtomWorker predicate innerNode ((var, pos):rest) env =
-  case Map.lookup var env of
-    Just pp -> do
-      let removedVar = PredicateVariable predicate pos
-      let prevVar = PredicateVariable predicate pp
-      (nextNode, used) <- bodyAtomWorker predicate innerNode rest env
-      nextOutVars <- outVarsOfNode nextNode
-      equality <- embedEquality nextOutVars (prevVar, removedVar)
-      conjunction <- constructNode (And (Set.fromList [equality, nextNode]))
-      newNode <- constructNode (Exists removedVar conjunction)
-      return (newNode, used)
-    Nothing -> do
-      let removedVar = PredicateVariable predicate pos
-      let newVar = QuantifiedVariable var
-      (nextNode, used) <- bodyAtomWorker predicate innerNode rest 
-                                         (Map.insert var pos env)
-      newNode <- constructNode (Assign newVar removedVar nextNode)
-      return (newNode, used)
+constructEquality :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
+constructEquality baseNode (keptVar, removedVar) = do
+  nextOutVars <- outVarsOfNode baseNode
+  equality <- embedEquality nextOutVars (keptVar, removedVar)
+  conjunction <- constructNode (And (Set.fromList [equality, baseNode]))
+  constructNode (Exists removedVar conjunction)
+
+constructAssign :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
+constructAssign baseNode (assignee, assigned) = do
+  constructNode (Assign assignee assigned baseNode)
+
+processArgumentListWorker :: Ord v => [(v,Int)] -> Map v Int -> [(Int,Int)]
+                                      -> (Map v Int, [(Int,Int)])
+processArgumentListWorker [] env eqs = (env, eqs)
+processArgumentListWorker ((var, pos) : rest) env eqs = let
+  (env', eqs') = case Map.lookup var env of
+                   Just prevPos -> (env, (prevPos,pos):eqs)
+                   Nothing      -> (Map.insert var pos env, eqs)
+  in processArgumentListWorker rest env' eqs'
+
+processArgumentList :: Ord v => [v] -> (Map v Int, [(Int, Int)])
+processArgumentList args =
+  processArgumentListWorker (zip args [0..]) Map.empty []
 
 nodesForBodyAtom :: (Ord r, Ord v) => (r -> Int) -> Atom r v
                                       -> Constructor r v (Int, Set v)
 nodesForBodyAtom nodeMap (At.Atom predicate args) = let
     node = nodeMap predicate
-    posArgs = zip args [0..]
-  in bodyAtomWorker predicate node posArgs Map.empty
+    (env, nakedEqs) = processArgumentList args
+    e = PredicateVariable predicate
+    eqs = fmap (\(a,b) -> (e a, e b)) nakedEqs
+    assigns = fmap (\(a,b) -> (QuantifiedVariable a, e b)) . Map.toList $ env
+  in do topLevelEquality <- foldlM constructEquality node eqs
+        topLevelAssign <- foldlM constructAssign topLevelEquality assigns
+        return (topLevelAssign, keysSet env)
 
 embed :: (Ord r, Ord v) => Set v -> Set v -> Int -> Constructor r v Int
 embed outerSet innerSet = let
@@ -170,17 +179,6 @@ bodyConjunction nodeMap bodyAtoms = do
   conjunction <- constructNode (And (Set.fromList embedded))
   return (conjunction, usedVariables)
 
-{-
--- TODO
-processHeadArgumentList :: (Ord r, Ord v) =>
-                           Atom r v
-                           -> (Map v (DefinedVariable r v), [(r, v)])
-processHeadArgumentList = undefined
- -- this is going to be applied to argument list of the head and
- -- defines a mapping from some of the variables to DefinedVariables. Plus
- -- we are going to get the equalities that need to be estaplished in for
- -- instance R x y :- which becomes R r0 r1 :- r0 = r1
--}
 
 constructNodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
                                            -> Constructor r v Int
