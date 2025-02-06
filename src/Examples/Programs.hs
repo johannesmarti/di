@@ -29,7 +29,7 @@ transitive = [
     Rule (Atom 'T' ['x', 'y']) [Atom 'R' ['x', 'z'], Atom 'T' ['z', 'y']] ]
 
 transitiveSchema :: AbstractTypedSchema Char String
-transitiveSchema = M.fromList [('E', ["int", "int"])]
+transitiveSchema = M.fromList [('R', ["int", "int"])]
 
 
 manages :: Program Char Char

@@ -1,4 +1,5 @@
 module ProgramToGraph (
+  Node,
   programToGraph
 ) where
 
@@ -19,14 +20,14 @@ import Schema
 type Node = Int
 
 data PartialGraphData r v = PartialGraphData {
-  outputVarMap :: Map Int (Set v),
-  unfoldingMap :: Map Int (Unfolding r v Int)
+  outputVarMap :: Map Node (Set v),
+  unfoldingMap :: Map Node (Unfolding r v Node)
 }
 
 emptyGraphData :: PartialGraphData r v
 emptyGraphData = PartialGraphData Map.empty Map.empty
 
-intoGraph :: Ord v => PartialGraphData r v -> Graph r v Int
+intoGraph :: Ord v => PartialGraphData r v -> Graph r v Node
 intoGraph pgd = let
     ovs = outputVarMap pgd
     ufs = unfoldingMap pgd
@@ -36,24 +37,24 @@ intoGraph pgd = let
 
 type GraphConstructor r v x = State (PartialGraphData r v) x
 
-freshInt :: GraphConstructor r v Int
-freshInt = do
+freshNode :: GraphConstructor r v Node
+freshNode = do
   cs <- get
   return $ fromMaybe 0 (fmap ((+ 1) . fst) (Map.lookupMax (outputVarMap cs)))
 
-outVarsOfNode :: Int -> GraphConstructor r v (Set v)
+outVarsOfNode :: Node -> GraphConstructor r v (Set v)
 outVarsOfNode n = do
   PartialGraphData outVarMap _ <- get
   return (outVarMap ! n)
 
-addNode :: Set v -> GraphConstructor r v Int
+addNode :: Set v -> GraphConstructor r v Node
 addNode outputVariables = do
-  n <- freshInt
+  n <- freshNode
   cs <- get
   put $ cs { outputVarMap = Map.insert n outputVariables (outputVarMap cs) }
   return n
 
-setNode :: Ord v => Int -> Unfolding r v Int -> GraphConstructor r v ()
+setNode :: Ord v => Node -> Unfolding r v Node -> GraphConstructor r v ()
 setNode n uf = do
   PartialGraphData outVarMap ufMap <- get
   put $ assert (n `Map.member` outVarMap) $
@@ -61,7 +62,7 @@ setNode n uf = do
         assert (outVarMap ! n == outputVariablesFromUnfolding (outVarMap !) uf) $
         PartialGraphData outVarMap (Map.insert n uf ufMap)
 
-constructNode :: Ord v => Unfolding r v Int -> GraphConstructor r v Int
+constructNode :: Ord v => Unfolding r v Node -> GraphConstructor r v Node
 constructNode uf = do
   PartialGraphData outVarMap _ <- get
   let outVars = outputVariablesFromUnfolding (outVarMap !) uf
@@ -69,13 +70,12 @@ constructNode uf = do
   setNode n uf
   return n
 
-data DefinedVariable r v = PredicateVariable r Int |
-                           QuantifiedVariable v
+data DefinedVariable r v = PredicateVariable r Int | RuleVariable v
   deriving (Eq, Ord)
 
 instance (Pretty r, Pretty v) => Pretty (DefinedVariable r v) where
   pretty (PredicateVariable r i) = pretty r ++ show i
-  pretty (QuantifiedVariable x) = pretty x
+  pretty (RuleVariable x) = pretty x
 
 argumentListForPredicate :: r -> Int -> [DefinedVariable r v]
 argumentListForPredicate predicate arity = 
@@ -89,7 +89,7 @@ outputVariablesForPredicate predicate arity =
 type Constructor r v x = GraphConstructor r (DefinedVariable r v) x
 
 constructBasePredicates :: (Ord r, Ord v) => Schema r
-                                          -> Constructor r v (Map r Int)
+                                          -> Constructor r v (Map r Node)
 constructBasePredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = let
       argList = argumentListForPredicate predicate arity
@@ -97,27 +97,27 @@ constructBasePredicates schema = traverseWithKey mapper schema where
     in constructNode (Graph.Atom atom)
 
 addDefinedPredicates :: (Ord r, Ord v) => Schema r
-                                          -> Constructor r v (Map r Int)
+                                          -> Constructor r v (Map r Node)
 addDefinedPredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = addNode (outputVariablesForPredicate predicate arity)
 
-projectSimpleRec :: Ord v => [v] -> Int -> GraphConstructor r v Int
+projectSimpleRec :: Ord v => [v] -> Node -> GraphConstructor r v Node
 projectSimpleRec [] continuationNode = return continuationNode
 projectSimpleRec (nextVar:rest) continuationNode = do
   inner <- project rest continuationNode
   constructNode (Project nextVar inner)
 
-projectTailRec :: Ord v => [v] -> Int -> GraphConstructor r v Int
+projectTailRec :: Ord v => [v] -> Node -> GraphConstructor r v Node
 projectTailRec [] continuationNode = return continuationNode
 projectTailRec (nextVar:rest) continuationNode = do
   inner <- constructNode (Project nextVar continuationNode)
   project rest inner
   
-project :: Ord v => [v] -> Int -> GraphConstructor r v Int
+project :: Ord v => [v] -> Node -> GraphConstructor r v Node
 project = projectTailRec
 
 embedEquality :: Ord v => Set v -> (v, v)
-                 -> GraphConstructor r v Int
+                 -> GraphConstructor r v Node
 embedEquality context (a, b) = assert (a /= b) $
                                assert (a `Set.member` context) $
                                assert (b `Set.member` context) $ let
@@ -125,16 +125,26 @@ embedEquality context (a, b) = assert (a /= b) $
   in do eqNode <- constructNode (Equality a b)
         project varsToProject eqNode
 
-constructEquality :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
-constructEquality baseNode (keptVar, removedVar) = do
-  nextOutVars <- outVarsOfNode baseNode
-  equality <- embedEquality nextOutVars (keptVar, removedVar)
-  conjunction <- constructNode (And (Set.fromList [equality, baseNode]))
-  constructNode (Exists removedVar conjunction)
+quantifyAway :: Ord v => Node -> v -> GraphConstructor r v Node
+quantifyAway baseNode variable = constructNode (Exists variable baseNode)
 
 constructAssign :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
 constructAssign baseNode (assignee, assigned) = do
   constructNode (Assign assignee assigned baseNode)
+
+constructExiEquality :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
+constructExiEquality baseNode (keptVar, removedVar) = do
+  nextOutVars <- outVarsOfNode baseNode
+  equality <- embedEquality nextOutVars (keptVar, removedVar)
+  conjunction <- constructNode (And (Set.fromList [equality, baseNode]))
+  quantifyAway conjunction removedVar
+
+constructProjEquality :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
+constructProjEquality baseNode (keptVar, projectedVar) = do
+  inner <- constructNode (Project projectedVar baseNode)
+  nextOutVars <- outVarsOfNode inner
+  equality <- embedEquality nextOutVars (keptVar, projectedVar)
+  constructNode (And (Set.fromList [equality, inner]))
 
 processArgumentListWorker :: Ord v => [(v,Int)] -> Map v Int -> [(Int,Int)]
                                       -> (Map v Int, [(Int,Int)])
@@ -149,26 +159,26 @@ processArgumentList :: Ord v => [v] -> (Map v Int, [(Int, Int)])
 processArgumentList args =
   processArgumentListWorker (zip args [0..]) Map.empty []
 
-nodesForBodyAtom :: (Ord r, Ord v) => (r -> Int) -> Atom r v
-                                      -> Constructor r v (Int, Set v)
+nodesForBodyAtom :: (Ord r, Ord v) => (r -> Node) -> Atom r v
+                                      -> Constructor r v (Node, Set v)
 nodesForBodyAtom nodeMap (At.Atom predicate args) = let
     node = nodeMap predicate
     (env, nakedEqs) = processArgumentList args
     e = PredicateVariable predicate
-    eqs = fmap (\(a,b) -> (e a, e b)) nakedEqs
-    assigns = fmap (\(a,b) -> (QuantifiedVariable a, e b)) . Map.toList $ env
-  in do topLevelEquality <- foldlM constructEquality node eqs
+    eqs = Prelude.map (\(a,b) -> (e a, e b)) nakedEqs
+    assigns = Prelude.map (\(a,b) -> (RuleVariable a, e b)) . Map.toList $ env
+  in do topLevelEquality <- foldlM constructExiEquality node eqs
         topLevelAssign <- foldlM constructAssign topLevelEquality assigns
         return (topLevelAssign, keysSet env)
 
-embed :: (Ord r, Ord v) => Set v -> Set v -> Int -> Constructor r v Int
+embed :: (Ord r, Ord v) => Set v -> Set v -> Node -> Constructor r v Node
 embed outerSet innerSet = let
     diff = outerSet `Set.difference` innerSet
-    varsToProject = Prelude.map QuantifiedVariable . Set.toList $ diff
+    varsToProject = Prelude.map RuleVariable . Set.toList $ diff
   in project varsToProject
 
-bodyConjunction :: (Ord r, Ord v) => (r -> Int) -> [Atom r v]
-                                     -> Constructor r v (Int, Set v)
+bodyConjunction :: (Ord r, Ord v) => (r -> Node) -> [Atom r v]
+                                     -> Constructor r v (Node, Set v)
 bodyConjunction nodeMap bodyAtoms = do
   let mapper atom = nodesForBodyAtom nodeMap atom
   tupleList <- mapM mapper bodyAtoms
@@ -179,24 +189,25 @@ bodyConjunction nodeMap bodyAtoms = do
   conjunction <- constructNode (And (Set.fromList embedded))
   return (conjunction, usedVariables)
 
-
-constructNodesForRule :: (Ord r, Ord v) => (r -> Int) -> Rule r v
-                                           -> Constructor r v Int
-constructNodesForRule predicateToNode rule = undefined
-{-
-constructNodesForRule predicateToNode rule = do
-  let nodeDefinitions = undefined
-  let ha = headAtom rule
-  let headPredicate = predicateSymbol ha
-  let arity = length $ arguments ha
-  let outVars = outputVariablesForPredicate headPredicate arity
-  headNode <- freshInt
-  let topLevelDefinition = (headNode, And Set.empty, outVars)
-  return (headNode, nodeDefinitions)
--}
+constructNodesForRule :: (Ord r, Ord v) => (r -> Node) -> Rule r v
+                                           -> Constructor r v Node
+constructNodesForRule predicateToNode (Rule headAtom bodyAtoms) = let
+    (At.Atom headPredicate headArgs) = headAtom
+    (env, nakedEqs) = processArgumentList headArgs
+    answerVars = Map.keysSet env
+    e = PredicateVariable headPredicate
+    eqs = Prelude.map (\(a,b) -> (e a, e b)) nakedEqs
+    assigns = Prelude.map (\(a,b) -> (e b, RuleVariable a)) . Map.toList $ env
+  in do
+    (bodyNode, usedVars) <- bodyConjunction predicateToNode bodyAtoms
+    let diff = usedVars `Set.difference` answerVars
+    let toQuantifyAway = Prelude.map RuleVariable (Set.toList diff)
+    quantifiedNode <- foldM quantifyAway bodyNode toQuantifyAway
+    topLevelAssign <- foldM constructAssign quantifiedNode assigns
+    foldM constructProjEquality topLevelAssign eqs
 
 nodesForDefinedPredicate :: (Ord r, Ord v) =>
-                            (r -> Int) -> Program r v -> r -> Constructor r v ()
+                            (r -> Node) -> Program r v -> r -> Constructor r v ()
 nodesForDefinedPredicate predicateToNode program predicate = do
   let rules = rulesForPredicate program predicate
   topLevelNodes <- mapM (constructNodesForRule predicateToNode) rules
@@ -204,7 +215,7 @@ nodesForDefinedPredicate predicateToNode program predicate = do
 
 constructGraphForProgram :: (Ord r, Ord v) =>
                                 (Schema r, Schema r) -> Program r v
-                                -> Constructor r v (Map r Int)
+                                -> Constructor r v (Map r Node)
 constructGraphForProgram (definedSchema, baseSchema) program = do
   baseMap <- constructBasePredicates baseSchema
   definedMap <- addDefinedPredicates definedSchema
@@ -215,11 +226,11 @@ constructGraphForProgram (definedSchema, baseSchema) program = do
 
 programToGraphWithTrace :: (Ord r, Ord v) =>
                            (Schema r, Schema r) -> Program r v
-                           -> (Graph r (DefinedVariable r v) Int, Map r Int)
+                           -> (Graph r (DefinedVariable r v) Node, Map r Node)
 programToGraphWithTrace schemas program = (intoGraph graphData, m) where
   (m, graphData) = runState (constructGraphForProgram schemas program)
                             emptyGraphData
 
 programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
-                                    -> Graph r (DefinedVariable r v) Int
+                                    -> Graph r (DefinedVariable r v) Node
 programToGraph schemas program = fst $ programToGraphWithTrace schemas program
