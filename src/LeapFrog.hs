@@ -33,7 +33,7 @@ stabelizeWorker value onValue (f:fs) =
     Nothing -> Nothing
     Just f' -> let newValue = current f' in
         if newValue == value
-          then stabelizeWorker value (f':onValue) rest
+          then stabelizeWorker value (f':onValue) fs
           else stabelizeWorker newValue [f'] (fs ++ onValue)
 
 stabelize :: Ord a => LeapFrog a -> [LeapFrog a] -> Maybe [LeapFrog a]
@@ -53,31 +53,37 @@ disjunction = disjunctionFromOrderedList . sortBy (comparing current)
 
 disjunctionFromOrderedList :: Ord a => [LeapFrog a] -> LeapFrog a
 disjunctionFromOrderedList orderedList = let
+    -- here we could have better error reporting for the emptyList
     currentValue = current . head $ orderedList
+    sameValue f = current f == currentValue
+    -- TODO: take out the common pattern in the following two functions
     definedNext = let
         work [] = Nothing
-        work (f:fs) = if currentValue == current f
+        work (f:fs) = if sameValue f
                         then let fs' = case next f of
                                          Nothing -> fs
-                                         Just f' -> insertOrdered f' fs
-                               in work fs
-                        else (f:fs)
-      in work orderedList
+                                         Just f' -> insertOrderedFrog f' fs
+                               in work fs'
+                        else Just (f:fs)
+      in fmap disjunctionFromOrderedList (work orderedList)
     definedSeek value = let
         work [] = Nothing
-        work (f:fs) = if value < current f
-                        then let fs' = case seek value f of
+        work (f:fs) = if current f < value
+                        then let fs' = case seek f value of
                                          Nothing -> fs
-                                         Just f' -> insertOrdered f' fs
-                               in work fs
-                        else (f:fs)
-      in work orderedList
-    definedDown = undefined
+                                         Just f' -> insertOrderedFrog f' fs
+                               in work fs'
+                        else Just (f:fs)
+      in fmap disjunctionFromOrderedList (work orderedList)
+    definedDown = Just $ disjunction (takeWhile sameValue orderedList)
   in LeapFrog currentValue definedNext definedSeek definedDown
 
 -- TODO: is there a library for this?
-insertOrdered :: Ord a => a -> [a] -> [a]
-insertOrdered value [] = [value]
-insertOrdered value (a:as) = if value <= a
-                               then value : (a:as)
-                               else a : (insertOrdered value as)
+insertOrderedBy :: (a -> a -> Ordering) -> a -> [a] -> [a]
+insertOrderedBy cmp value [] = [value]
+insertOrderedBy cmp value (a:as) = if a `cmp` value == LT
+                               then a : (insertOrderedBy cmp value as)
+                               else value : (a:as)
+
+insertOrderedFrog :: Ord a => LeapFrog a -> [LeapFrog a] -> [LeapFrog a]
+insertOrderedFrog = insertOrderedBy (comparing current)
