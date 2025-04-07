@@ -56,25 +56,17 @@ disjunctionFromOrderedList orderedList = let
     -- here we could have better error reporting for the emptyList
     currentValue = current . head $ orderedList
     sameValue f = current f == currentValue
-    -- TODO: take out the common pattern in the following two functions
-    definedNext = let
+    disjunctionBehindPredicate predicate =  let
         work [] = Nothing
-        work (f:fs) = if sameValue f
+        work (f:fs) = if predicate f
                         then let fs' = case next f of
                                          Nothing -> fs
                                          Just f' -> insertOrderedFrog f' fs
                                in work fs'
                         else Just (f:fs)
       in fmap disjunctionFromOrderedList (work orderedList)
-    definedSeek value = let
-        work [] = Nothing
-        work (f:fs) = if current f < value
-                        then let fs' = case seek f value of
-                                         Nothing -> fs
-                                         Just f' -> insertOrderedFrog f' fs
-                               in work fs'
-                        else Just (f:fs)
-      in fmap disjunctionFromOrderedList (work orderedList)
+    definedNext = disjunctionBehindPredicate sameValue
+    definedSeek value = disjunctionBehindPredicate (\f -> current f < value)
     definedDown = Just $ disjunction (takeWhile sameValue orderedList)
   in LeapFrog currentValue definedNext definedSeek definedDown
 
