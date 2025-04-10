@@ -5,6 +5,7 @@ module Graph (
   fromTupleList,
   Graph.fromSet,
   fromMap,
+  subgraphOnSubset,
   prettyGraph
 ) where
 
@@ -174,6 +175,36 @@ fromMap m = let
     preds = converse domSet succs
     graph = Graph (mapWithKey (\n (u, s) -> NodeData u (preds n) s) m)
   in assert (isCoherent graph) graph
+
+subgraphOnSubset :: (Ord v, Ord n) => Set n -> Graph r v n -> Graph r v n
+subgraphOnSubset subset graph = let
+    f node = let
+          NodeData ouf opreds ov  = dataOfNode graph node
+          uf = case ouf of
+                 And nodes -> And (nodes `Set.intersection` subset)
+                 Or nodes  -> Or  (nodes `Set.intersection` subset)
+                 _         -> ouf
+          preds = opreds `Set.intersection` subset
+        in NodeData uf preds ov
+    subgraph = Graph (Map.fromSet f subset)
+  in assert (subset `isSubsetOf` keysSet (dataMap graph)) $
+     assert (isCoherent subgraph) subgraph
+
+subgraphOnPredicate :: (Ord v, Ord n) => (n -> Bool) -> Graph r v n
+                                         -> Graph r v n
+subgraphOnPredicate inSubgraph (Graph gm) = let
+    f node inData = let
+          NodeData ouf opreds ov  = inData
+          uf = case ouf of
+                 And nodes -> And (Set.filter inSubgraph nodes)
+                 Or nodes  -> Or  (Set.filter inSubgraph nodes)
+                 _         -> ouf
+          preds = Set.filter inSubgraph opreds
+        in if inSubgraph node
+             then Just (NodeData uf preds ov)
+             else Nothing
+    subgraph = Graph (Map.mapMaybeWithKey f gm)
+  in assert (isCoherent subgraph) subgraph
 
 -- pretty printing
 
