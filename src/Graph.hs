@@ -1,7 +1,12 @@
 module Graph (
   Unfolding(..),
+  unfolding,
   Graph,
+  dataMap,
   outputVariablesFromUnfolding,
+  unfoldNode,
+  successorsOfNode,
+  predecessorsOfNode,
   fromTupleList,
   Graph.fromSet,
   fromMap,
