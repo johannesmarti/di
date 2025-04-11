@@ -1,4 +1,4 @@
-module Optimizer.ReachabilityAnalysis (
+module Optimizer.Reachability (
   keepReachable,
 ) where
 

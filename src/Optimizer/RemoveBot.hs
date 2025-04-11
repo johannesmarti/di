@@ -1,5 +1,5 @@
-module Optimizer.NonEmptyAnalysis (
-  removeEmpty,
+module Optimizer.RemoveBot (
+  removeBot,
 ) where
 
 import Data.Map.Strict as Map
@@ -7,8 +7,9 @@ import Data.Set as Set
 
 import Graph
 
-removeEmpty :: (Ord v, Ord n) => Graph r v n -> Graph r v n
-removeEmpty graph = let
+-- this function computes the least-fixpoint of all nodes that are not bot
+removeBot :: (Ord v, Ord n) => Graph r v n -> Graph r v n
+removeBot graph = let
     isStarting (Atom _)       = True
     isStarting (Equality _ _) = True
     isStarting (And succs)    = Set.null succs
