@@ -11,6 +11,7 @@ module Graph (
   Graph.fromSet,
   fromMap,
   subgraphOnSubset,
+  subgraphOnPredicate,
   prettyGraph
 ) where
 

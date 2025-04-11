@@ -19,5 +19,5 @@ keepReachable roots graph = let
         newAccum = toAdd `Set.union` accum
         newQueue = Set.toList toAdd ++ remaining
       in worker newAccum newQueue
-  in subgraphOnSubset (worker startingSet startingQueue) graph where
+  in subgraphOnSubset (worker startingSet startingQueue) graph
 

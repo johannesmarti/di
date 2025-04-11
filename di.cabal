@@ -64,7 +64,7 @@ executable di
     -- Modules included in this executable, other than Main.
     other-modules: Pretty, Atom, Program, Schema, Graph, ProgramToGraph,
                    LeapFrog,
-                   Optimizer.RemoveBot, Optimizer.Reachability,
+                   Optimizer.RemoveTopBot, Optimizer.Reachability,
                    Examples.Programs, Examples.Graphs
 
     -- LANGUAGE extensions used by modules in this package.
