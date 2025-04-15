@@ -105,15 +105,15 @@ outputVariablesFromInputVariables (Assign v w _) inVars =
   assert (w `Set.member` inVars) $ Set.insert v (Set.delete w inVars)
 -- TODO: in pretty code these asserts where also checked as part of the bool computation
 
-inputVariablesFromUnfolding :: (Ord v, Ord n) =>
-                                (n -> Set v) -> Unfolding r v n -> Maybe (Set v)
-inputVariablesFromUnfolding outVars uf =
-  inputVariablesFromSuccessors outVars (nodesInUnfolding uf)
-
 inputVariablesFromSuccessors :: (Ord v, Ord n) => (n -> Set v) -> Set n
                                                   -> Maybe (Set v)
 inputVariablesFromSuccessors outVars succsSet =
   fmap outVars (Set.lookupMin succsSet)
+
+inputVariablesFromUnfolding :: (Ord v, Ord n) =>
+                                (n -> Set v) -> Unfolding r v n -> Maybe (Set v)
+inputVariablesFromUnfolding outVars uf =
+  inputVariablesFromSuccessors outVars (nodesInUnfolding uf)
 
 outputVariablesFromUnfolding :: (Ord v, Ord n) =>
                                 (n -> Set v) -> Unfolding r v n -> Set v

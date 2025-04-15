@@ -42,6 +42,6 @@ removeBot graph = let
     isStarting (Equality _ _) = True
     isStarting (And succs)    = Set.null succs
     isStarting _              = False
-    botNodes = backwardsElementFlow graph isStarting
-  in subgraphOnSubset botNodes graph
+    nonBotNodes = backwardsElementFlow graph isStarting
+  in subgraphOnSubset nonBotNodes graph
 
