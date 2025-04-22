@@ -15,7 +15,7 @@ main = do
   --putStrLn "==========="
   putStrLn $ prettyGraph transitiveGraph
   putStrLn "==========="
-  putStrLn $ prettyGraph (keepReachable [1] . removeTop . removeBot $ transitiveGraph)
+  putStrLn $ prettyGraph (keepReachable [2] . removeTop . removeBot $ transitiveGraph)
   --putStrLn "==========="
   --putStrLn . prettyGraph $ programToGraph
   --          (fromList [('T', 2)], fromList [('R', 2)]) transitive

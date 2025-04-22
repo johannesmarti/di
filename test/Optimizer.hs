@@ -14,6 +14,6 @@ spec = describe "example" $ do
   it "no change on remove top and bot from transitive" $
     domain transitiveGraph `shouldBe` domain optimizedTransitive
 
-  let reachableTransitive = keepReachable [1] transitiveGraph
+  let reachableTransitive = keepReachable [2] transitiveGraph
   it "no change on keepReachable for transitive" $
     domain transitiveGraph `shouldBe` domain reachableTransitive
