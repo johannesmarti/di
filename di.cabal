@@ -54,18 +54,39 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
+library
+    -- Import common warning flags.
+    import:           warnings
+
+    -- Directories containing source files.
+    hs-source-dirs:   src
+
+    exposed-modules: Pretty, Atom, Program, Schema, Graph, ProgramToGraph,
+                     LeapFrog,
+                     Optimizer.RemoveTopBot, Optimizer.Reachability,
+                     Examples.Programs, Examples.Graphs
+    other-modules:
+
+    build-depends: base ^>=4.17.2.1,
+                   containers,
+                   mtl,
+
+    -- Base language which the package is written in.
+    default-language: Haskell2010
+
+    -- We don't need optimization for now. I want to have all asserts going strong
+    ghc-options: -O0
+
+
 executable di
     -- Import common warning flags.
     import:           warnings
 
+    -- Directories containing source files.
+    hs-source-dirs:   .
+
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
-
-    -- Modules included in this executable, other than Main.
-    other-modules: Pretty, Atom, Program, Schema, BaseGraph, Graph,
-                   ProgramToGraph, LeapFrog,
-                   Optimizer.RemoveTopBot, Optimizer.Reachability,
-                   Examples.Programs, Examples.Graphs
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -73,13 +94,25 @@ executable di
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.17.2.1,
                       containers,
-                      mtl,
-
-    -- Directories containing source files.
-    hs-source-dirs:   src
+                      di
 
     -- Base language which the package is written in.
     default-language: Haskell2010
 
     -- We don't need optimization for now. I want to have all asserts going strong
     ghc-options: -O0
+
+
+test-suite di-test
+    import:           warnings
+
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Main.hs
+    other-modules:    Optimizer
+    build-depends:    base ^>=4.17.2.1,
+                      containers,
+                      mtl,
+                      di,
+                      hspec ^>=2.10
+    default-language: Haskell2010
