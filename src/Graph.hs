@@ -3,6 +3,7 @@ module Graph (
   unfolding,
   Graph,
   dataMap,
+  domain,
   outputVariablesFromUnfolding,
   unfoldNode,
   successorsOfNode,
