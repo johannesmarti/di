@@ -2,15 +2,18 @@ module BaseGraph (
   unfolding,
   Graph,
   dataMap,
+  domain,
   unfoldNode,
   successorsOfNode,
   predecessorsOfNode,
+  inputVariablesFromSuccessors,
+  isCoherent,
   fromTupleList,
   BaseGraph.fromSet,
   fromMap,
   subgraphOnSubset,
   subgraphOnPredicate,
-  prettyGraph
+  prettyGraphPrinter
 ) where
 
 import Control.Exception (assert)
@@ -105,7 +108,10 @@ outputVariablesCoherent nodesInUnfolding outputVariablesFromInputVariables
          Just set -> outputVariablesFromInputVariables uf set == outVars
          Nothing  -> False
 
--- TODO: Make sure that this coherency test is applied in all cration functions using this module
+-- Need to make sure that this coherency test is applied as an assert in all
+-- creation functions using this module. This is not done in the creation
+-- functions defined here because then their signature would depend on
+-- whether assertions are activated.
 isCoherent :: (Ord v, Ord n) => (u -> Set n) -> (u -> Set v -> Set v)
                                 -> Graph v u n -> Bool
 isCoherent nodesInUnfolding outputVariablesFromInputVariables graph =
@@ -176,9 +182,3 @@ prettyGraphPrinter prettyUnfolding pVar pNode (Graph m) =
         (pNode n) ++ " : [" ++ prettyOutVars outVars ++ "] > "
                   ++ prettyUnfolding uf ++ "\n"
   in concatMap prettyNode (Map.toList m)
-
-showGraph :: (Show v, Show n) => (u -> String) -> Graph v u n -> String
-showGraph prettyUnfolding = prettyGraphPrinter prettyUnfolding show show
-
-prettyGraph :: (Pretty v, Pretty n) => (u -> String) -> Graph v u n -> String
-prettyGraph prettyUnfolding = prettyGraphPrinter prettyUnfolding pretty pretty

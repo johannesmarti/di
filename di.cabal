@@ -61,11 +61,12 @@ library
     -- Directories containing source files.
     hs-source-dirs:   src
 
-    exposed-modules: Pretty, Atom, Program, Schema, Graph, ProgramToGraph,
-                     LeapFrog,
+    exposed-modules: Pretty, Atom, Program, Schema,
+                     LogicalGraph, ProgramToGraph,
                      Optimizer.RemoveTopBot, Optimizer.Reachability,
-                     Examples.Programs, Examples.Graphs
-    other-modules:
+                     LeapFrog,
+                     Examples.Programs, Examples.LogicalGraphs
+    other-modules:   BaseGraph
 
     build-depends: base ^>=4.17.2.1,
                    containers,

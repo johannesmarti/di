@@ -2,8 +2,8 @@ module Optimizer (spec) where
 
 import Test.Hspec
 
-import Examples.Graphs
-import Graph
+import Examples.LogicalGraphs
+import LogicalGraph
 import Optimizer.RemoveTopBot
 import Optimizer.Reachability
 

@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set
 
 import Atom as At
-import Graph
+import LogicalGraph
 import Pretty
 import Program
 import Schema
@@ -33,7 +33,7 @@ intoGraph pgd = let
     ufs = unfoldingMap pgd
     dom = assert (keysSet ovs == keysSet ufs) $ keysSet ovs
     f n = (ufs ! n, ovs ! n)
-  in Graph.fromSet dom f
+  in LogicalGraph.fromSet dom f
 
 type GraphConstructor r v x = State (PartialGraphData r v) x
 
@@ -94,7 +94,7 @@ constructBasePredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = let
       argList = argumentListForPredicate predicate arity
       atom = At.Atom predicate argList
-    in constructNode (Graph.Atom atom)
+    in constructNode (LogicalGraph.Atom atom)
 
 addDefinedPredicates :: (Ord r, Ord v) => Schema r
                                           -> Constructor r v (Map r Node)

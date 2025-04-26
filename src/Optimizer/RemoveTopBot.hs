@@ -6,10 +6,10 @@ module Optimizer.RemoveTopBot (
 import Data.Map.Strict as Map
 import Data.Set as Set
 
-import Graph
+import LogicalGraph
 
 backwardsElementFlow :: (Ord v, Ord n) =>
-                        Graph r v n -> (Unfolding r v n -> Bool) -> Set n
+                       Graph r v n -> (Unfolding r v n -> Bool) -> Set n
 backwardsElementFlow graph isStarting = let
     m = dataMap graph
     startingSet = Map.keysSet (Map.filter (isStarting . unfolding) m)

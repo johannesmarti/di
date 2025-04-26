@@ -1,10 +1,10 @@
 module Main where
 
-import Examples.Graphs
+import Examples.LogicalGraphs
 import Examples.Programs
 import Data.Map
 
-import Graph
+import LogicalGraph
 import Optimizer.RemoveTopBot
 import Optimizer.Reachability
 import ProgramToGraph
