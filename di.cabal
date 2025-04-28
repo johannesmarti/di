@@ -63,6 +63,7 @@ library
 
     exposed-modules: Pretty, Atom, Program, Schema,
                      LogicalGraph, ProgramToGraph,
+                     TermGraph,
                      Optimizer.RemoveTopBot, Optimizer.Reachability,
                      LeapFrog,
                      Examples.Programs, Examples.LogicalGraphs

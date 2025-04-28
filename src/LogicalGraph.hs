@@ -1,5 +1,6 @@
 module LogicalGraph (
   Unfolding(..),
+  mapUnfolding,
   BG.unfolding,
   outputVariablesFromUnfolding,
   Graph,
@@ -13,6 +14,8 @@ module LogicalGraph (
   fromMap,
   subgraphOnSubset,
   subgraphOnPredicate,
+  PrettyLogicalBase(..),
+  prettyUnfolding,
   prettyGraph
 ) where
 
@@ -31,6 +34,16 @@ import Pretty
 data Unfolding r v n = Atom (At.Atom r v) | Equality v v |
                        And (Set n) | Or (Set n) |
                        Exists v n | Project v n | Assign v v n
+  deriving (Eq,Ord)
+
+mapUnfolding :: Ord m => (n -> m) -> Unfolding r v n -> Unfolding r v m
+mapUnfolding f (Atom a) = Atom a
+mapUnfolding f (Equality v w) = Equality v w
+mapUnfolding f (And s) = And (Set.map f s)
+mapUnfolding f (Or s) = Or (Set.map f s)
+mapUnfolding f (Exists v n) = Exists v (f n)
+mapUnfolding f (Project v n) = Project v (f n)
+mapUnfolding f (Assign v w n) = Assign v w (f n)
 
 nodesInUnfolding :: Ord n => Unfolding r v n -> Set n
 nodesInUnfolding (And s) = s
