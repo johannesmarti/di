@@ -4,8 +4,9 @@ module BaseGraph (
   dataMap,
   domain,
   unfoldNode,
-  successorsOfNode,
+  outputVariablesOfNode,
   predecessorsOfNode,
+  successorsOfNode,
   inputVariablesFromSuccessors,
   isCoherent,
   fromTupleList,
@@ -136,6 +137,7 @@ fromTupleList nodesInUnfolding tupleList =
         aList = Prelude.map (\(n,u,v) -> (n, NodeData u (preds n) v)) tupleList
     in Graph (Map.fromList aList)
 
+-- using converse here is probably quite slow
 fromSet :: (Ord v, Ord n) => (u -> Set n) -> Set n -> (n -> (u, Set v))                                      -> Graph v u n
 fromSet nodesInUnfolding domSet f = let
     succs = nodesInUnfolding . fst . f

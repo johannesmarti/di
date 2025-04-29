@@ -52,7 +52,7 @@ extra-doc-files:    CHANGELOG.md
 -- extra-source-files:
 
 common warnings
-    ghc-options: -Wall
+    ghc-options: -Wall -fno-ignore-asserts
 
 library
     -- Import common warning flags.
@@ -62,12 +62,13 @@ library
     hs-source-dirs:   src
 
     exposed-modules: Pretty, Atom, Program, Schema,
+                     BaseGraph,
                      LogicalGraph, ProgramToGraph,
                      TermGraph,
                      Optimizer.RemoveTopBot, Optimizer.Reachability,
                      LeapFrog,
                      Examples.Programs, Examples.LogicalGraphs
-    other-modules:   BaseGraph
+    other-modules:
 
     build-depends: base ^>=4.17.2.1,
                    containers,
@@ -75,9 +76,6 @@ library
 
     -- Base language which the package is written in.
     default-language: Haskell2010
-
-    -- We don't need optimization for now. I want to have all asserts going strong
-    ghc-options: -O0
 
 
 executable di
@@ -101,9 +99,6 @@ executable di
     -- Base language which the package is written in.
     default-language: Haskell2010
 
-    -- We don't need optimization for now. I want to have all asserts going strong
-    ghc-options: -O0
-
 
 test-suite di-test
     import:           warnings
@@ -111,7 +106,7 @@ test-suite di-test
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Main.hs
-    other-modules:    Optimizer
+    other-modules:    TestOptimizer, TestTermGraph
     build-depends:    base ^>=4.17.2.1,
                       containers,
                       mtl,

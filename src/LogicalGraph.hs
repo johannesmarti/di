@@ -1,6 +1,7 @@
 module LogicalGraph (
   Unfolding(..),
   mapUnfolding,
+  foldUnfolding,
   BG.unfolding,
   outputVariablesFromUnfolding,
   Graph,
@@ -21,6 +22,7 @@ module LogicalGraph (
 
 import Control.Exception (assert)
 
+import Data.Foldable (fold)
 import Data.List (nub, intercalate)
 import Data.Map.Strict as Map
 import Data.Maybe
@@ -44,6 +46,15 @@ mapUnfolding f (Or s) = Or (Set.map f s)
 mapUnfolding f (Exists v n) = Exists v (f n)
 mapUnfolding f (Project v n) = Project v (f n)
 mapUnfolding f (Assign v w n) = Assign v w (f n)
+
+foldUnfolding :: Monoid n => Unfolding r v n -> n
+foldUnfolding (Atom a) = mempty
+foldUnfolding (Equality v w) = mempty
+foldUnfolding (And s) = Data.Foldable.fold s
+foldUnfolding (Or s) = Data.Foldable.fold s 
+foldUnfolding (Exists v n) = n
+foldUnfolding (Project v n) = n
+foldUnfolding (Assign v w n) = n
 
 nodesInUnfolding :: Ord n => Unfolding r v n -> Set n
 nodesInUnfolding (And s) = s
@@ -112,7 +123,7 @@ subgraphOnSubset subset graph = assert (isCoherent result) result where
   result = BG.subgraphOnSubset filterUnfolding subset graph
   filterUnfolding uf = case uf of
                          And nodes -> And (nodes `Set.intersection` subset)
-                         Or nodes  -> Or  (nodes `Set.intersection` subset)
+                         Or  nodes -> Or  (nodes `Set.intersection` subset)
                          _         -> uf
 
 subgraphOnPredicate :: (Ord v, Ord n) => (n -> Bool) -> Graph r v n
@@ -122,7 +133,7 @@ subgraphOnPredicate inSubgraph graph =
     result = BG.subgraphOnPredicate filterUnfolding inSubgraph graph
     filterUnfolding uf = case uf of
                            And nodes -> And (Set.filter inSubgraph nodes)
-                           Or nodes  -> Or  (Set.filter inSubgraph nodes)
+                           Or  nodes -> Or  (Set.filter inSubgraph nodes)
                            _         -> uf
 
 
@@ -160,7 +171,6 @@ prettyGraphPrinter pb = BG.prettyGraphPrinter (prettyUnfolding pb)
 showGraph :: (Show r, Show v, Show n) => Graph r v n -> String
 showGraph = prettyGraphPrinter $ PrettyLogicalBase show show show
 
-prettyGraph :: (Pretty r, Pretty v, Pretty n) =>
-                      Graph r v n -> String
+prettyGraph :: (Pretty r, Pretty v, Pretty n) => Graph r v n -> String
 prettyGraph = prettyGraphPrinter $ PrettyLogicalBase pretty pretty pretty
 

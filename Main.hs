@@ -1,10 +1,11 @@
 module Main where
 
-import Examples.LogicalGraphs
-import Examples.Programs
 import Data.Map
 
-import LogicalGraph
+import Examples.LogicalGraphs
+import Examples.Programs
+import LogicalGraph as LG
+import TermGraph as TG
 import Optimizer.RemoveTopBot
 import Optimizer.Reachability
 import ProgramToGraph
@@ -13,9 +14,9 @@ main :: IO ()
 main = do
   --putStrLn $ prettyGraph trivialGraph
   --putStrLn "==========="
-  putStrLn $ prettyGraph transitiveGraph
+  putStrLn $ LG.prettyGraph transitiveGraph
   putStrLn "==========="
-  putStrLn $ prettyGraph (keepReachable [2] . removeTop . removeBot $ transitiveGraph)
+  putStrLn $ TG.prettyGraph (TG.fromLogicalGraph [2] transitiveGraph)
   --putStrLn "==========="
   --putStrLn . prettyGraph $ programToGraph
   --          (fromList [('T', 2)], fromList [('R', 2)]) transitive
