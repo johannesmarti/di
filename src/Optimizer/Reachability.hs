@@ -5,7 +5,7 @@ module Optimizer.Reachability (
 import Data.Map.Strict as Map
 import Data.Set as Set
 
-import LogicalGraph
+import OperatorGraph
 
 keepReachable :: (Ord v, Ord n) => [n] -> Graph r v n -> Graph r v n
 keepReachable roots graph = let

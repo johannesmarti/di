@@ -63,11 +63,11 @@ library
 
     exposed-modules: Pretty, Atom, Program, Schema,
                      BaseGraph,
-                     LogicalGraph, ProgramToGraph,
+                     OperatorGraph, ProgramToGraph,
                      TermGraph,
                      Optimizer.RemoveTopBot, Optimizer.Reachability,
                      LeapFrog,
-                     Examples.Programs, Examples.LogicalGraphs
+                     Examples.Programs, Examples.OperatorGraphs
     other-modules:
 
     build-depends: base ^>=4.17.2.1,

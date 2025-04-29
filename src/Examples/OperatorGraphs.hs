@@ -1,4 +1,4 @@
-module Examples.LogicalGraphs (
+module Examples.OperatorGraphs (
   trivialGraph,
   transitiveGraph,
 ) where
@@ -6,21 +6,21 @@ module Examples.LogicalGraphs (
 import Data.Set as Set
 
 import qualified Atom 
-import LogicalGraph
+import OperatorGraph
 
-fl :: (Ord v, Ord n) => [(n, Unfolding r v n, [v])] -> Graph r v n
+fl :: (Ord v, Ord n) => [(n, Operator r v n, [v])] -> Graph r v n
 fl = fromTupleList . (Prelude.map (\(a,b,c) -> (a,b, Set.fromList c)))
 
-trivial :: [(Int, Unfolding Char Char Int, [Char])]
+trivial :: [(Int, Operator Char Char Int, [Char])]
 trivial = [
   (1, Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']) ]
 
 trivialGraph :: Graph Char Char Int
 trivialGraph = fl trivial
 
-transitive :: [(Int, Unfolding Char Char Int, [Char])]
+transitive :: [(Int, Operator Char Char Int, [Char])]
 transitive = [
-  (1, LogicalGraph.Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']),
+  (1, OperatorGraph.Atom (Atom.Atom 'R' ['x', 'y']), ['x', 'y']),
 
   (2, Or (Set.fromList [1, 3]), ['x', 'y']),
   (3, Exists 'z' 4, ['x', 'y']),

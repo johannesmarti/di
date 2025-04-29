@@ -1,9 +1,9 @@
-module LogicalGraph (
-  Unfolding(..),
-  mapUnfolding,
-  foldUnfolding,
+module OperatorGraph (
+  Operator(..),
+  mapOperator,
+  foldOperator,
   BG.unfolding,
-  outputVariablesFromUnfolding,
+  outputVariablesFromOperator,
   Graph,
   BG.dataMap,
   BG.domain,
@@ -11,12 +11,12 @@ module LogicalGraph (
   successorsOfNode,
   BG.predecessorsOfNode,
   fromTupleList,
-  LogicalGraph.fromSet,
+  OperatorGraph.fromSet,
   fromMap,
   subgraphOnSubset,
   subgraphOnPredicate,
-  PrettyLogicalBase(..),
-  prettyUnfolding,
+  PrettyOperatorBase(..),
+  prettyOperator,
   prettyGraph
 ) where
 
@@ -33,56 +33,56 @@ import qualified Atom as At
 import qualified BaseGraph as BG
 import Pretty
 
-data Unfolding r v n = Atom (At.Atom r v) | Equality v v |
-                       And (Set n) | Or (Set n) |
-                       Exists v n | Project v n | Assign v v n
+data Operator r v n = Atom (At.Atom r v) | Equality v v |
+                      And (Set n) | Or (Set n) |
+                      Exists v n | Project v n | Assign v v n
   deriving (Eq,Ord)
 
-mapUnfolding :: Ord m => (n -> m) -> Unfolding r v n -> Unfolding r v m
-mapUnfolding f (Atom a) = Atom a
-mapUnfolding f (Equality v w) = Equality v w
-mapUnfolding f (And s) = And (Set.map f s)
-mapUnfolding f (Or s) = Or (Set.map f s)
-mapUnfolding f (Exists v n) = Exists v (f n)
-mapUnfolding f (Project v n) = Project v (f n)
-mapUnfolding f (Assign v w n) = Assign v w (f n)
+mapOperator :: Ord m => (n -> m) -> Operator r v n -> Operator r v m
+mapOperator f (Atom a) = Atom a
+mapOperator f (Equality v w) = Equality v w
+mapOperator f (And s) = And (Set.map f s)
+mapOperator f (Or s) = Or (Set.map f s)
+mapOperator f (Exists v n) = Exists v (f n)
+mapOperator f (Project v n) = Project v (f n)
+mapOperator f (Assign v w n) = Assign v w (f n)
 
-foldUnfolding :: Monoid n => Unfolding r v n -> n
-foldUnfolding (Atom a) = mempty
-foldUnfolding (Equality v w) = mempty
-foldUnfolding (And s) = Data.Foldable.fold s
-foldUnfolding (Or s) = Data.Foldable.fold s 
-foldUnfolding (Exists v n) = n
-foldUnfolding (Project v n) = n
-foldUnfolding (Assign v w n) = n
+foldOperator :: Monoid n => Operator r v n -> n
+foldOperator (Atom a) = mempty
+foldOperator (Equality v w) = mempty
+foldOperator (And s) = Data.Foldable.fold s
+foldOperator (Or s) = Data.Foldable.fold s 
+foldOperator (Exists v n) = n
+foldOperator (Project v n) = n
+foldOperator (Assign v w n) = n
 
-nodesInUnfolding :: Ord n => Unfolding r v n -> Set n
-nodesInUnfolding (And s) = s
-nodesInUnfolding (Or s) = s
-nodesInUnfolding (Exists v a) = Set.singleton a
-nodesInUnfolding (Project v a) = Set.singleton a
-nodesInUnfolding (Assign v w a) = Set.singleton a
-nodesInUnfolding _ = Set.empty
+nodesInOperator :: Ord n => Operator r v n -> Set n
+nodesInOperator (And s) = s
+nodesInOperator (Or s) = s
+nodesInOperator (Exists v a) = Set.singleton a
+nodesInOperator (Project v a) = Set.singleton a
+nodesInOperator (Assign v w a) = Set.singleton a
+nodesInOperator _ = Set.empty
 
-inputVariablesFromUnfolding :: (Ord v, Ord n) =>
-                               (n -> Set v) -> Unfolding r v n -> Maybe (Set v)
-inputVariablesFromUnfolding outVars uf =
-  BG.inputVariablesFromSuccessors outVars (nodesInUnfolding uf)
+inputVariablesFromOperator :: (Ord v, Ord n) =>
+                              (n -> Set v) -> Operator r v n -> Maybe (Set v)
+inputVariablesFromOperator outVars uf =
+  BG.inputVariablesFromSuccessors outVars (nodesInOperator uf)
 
-outputVariablesFromUnfolding :: (Ord v, Ord n) =>
-                                (n -> Set v) -> Unfolding r v n -> Set v
-outputVariablesFromUnfolding outVars uf =
+outputVariablesFromOperator :: (Ord v, Ord n) =>
+                               (n -> Set v) -> Operator r v n -> Set v
+outputVariablesFromOperator outVars uf =
   outputVariablesFromInputVariables uf . fromJust $
-        inputVariablesFromUnfolding outVars uf
+        inputVariablesFromOperator outVars uf
 
-type Graph r v n = BG.Graph v (Unfolding r v n) n
+type Graph r v n = BG.Graph v (Operator r v n) n
 
 successorsOfNode :: Ord n => Graph r v n -> n -> Set n
-successorsOfNode = BG.successorsOfNode nodesInUnfolding
+successorsOfNode = BG.successorsOfNode nodesInOperator
 
 -- checking the consistency of the data
 
-outputVariablesFromInputVariables :: Ord v => Unfolding r v n -> Set v -> Set v
+outputVariablesFromInputVariables :: Ord v => Operator r v n -> Set v -> Set v
 outputVariablesFromInputVariables (Atom at) _ = Set.fromList $ arguments at
 outputVariablesFromInputVariables (Equality v w) _ = Set.fromList $ [v, w]
 outputVariablesFromInputVariables (And _) inVars = inVars
@@ -98,30 +98,30 @@ outputVariablesFromInputVariables (Assign v w _) inVars =
 -- TODO: Should also check that renamed, bound and projected variables make
 -- sense. I am not yet sure how to do this well.
 isCoherent :: (Ord v, Ord n) => Graph r v n -> Bool
-isCoherent = BG.isCoherent nodesInUnfolding
+isCoherent = BG.isCoherent nodesInOperator
                            outputVariablesFromInputVariables
 
 
 -- creation
 
-fromTupleList :: (Ord v, Ord n) => [(n, Unfolding r v n, Set v)]
+fromTupleList :: (Ord v, Ord n) => [(n, Operator r v n, Set v)]
                                    -> Graph r v n
 fromTupleList tupleList = assert (isCoherent result) result where
-  result = BG.fromTupleList nodesInUnfolding tupleList
+  result = BG.fromTupleList nodesInOperator tupleList
 
-fromSet :: (Ord v, Ord n) => Set n -> (n -> (Unfolding r v n, Set v))
+fromSet :: (Ord v, Ord n) => Set n -> (n -> (Operator r v n, Set v))
                              -> Graph r v n
 fromSet domSet f = assert (isCoherent result) result where
-  result = BG.fromSet nodesInUnfolding domSet f
+  result = BG.fromSet nodesInOperator domSet f
 
-fromMap :: (Ord v, Ord n) => Map n (Unfolding r v n, Set v) -> Graph r v n
+fromMap :: (Ord v, Ord n) => Map n (Operator r v n, Set v) -> Graph r v n
 fromMap m = assert (isCoherent result) result where
-  result = BG.fromMap nodesInUnfolding m
+  result = BG.fromMap nodesInOperator m
 
 subgraphOnSubset :: (Ord v, Ord n) => Set n -> Graph r v n -> Graph r v n
 subgraphOnSubset subset graph = assert (isCoherent result) result where
-  result = BG.subgraphOnSubset filterUnfolding subset graph
-  filterUnfolding uf = case uf of
+  result = BG.subgraphOnSubset filterOperator subset graph
+  filterOperator uf = case uf of
                          And nodes -> And (nodes `Set.intersection` subset)
                          Or  nodes -> Or  (nodes `Set.intersection` subset)
                          _         -> uf
@@ -130,8 +130,8 @@ subgraphOnPredicate :: (Ord v, Ord n) => (n -> Bool) -> Graph r v n
                                          -> Graph r v n
 subgraphOnPredicate inSubgraph graph =
   assert (isCoherent result) result where
-    result = BG.subgraphOnPredicate filterUnfolding inSubgraph graph
-    filterUnfolding uf = case uf of
+    result = BG.subgraphOnPredicate filterOperator inSubgraph graph
+    filterOperator uf = case uf of
                            And nodes -> And (Set.filter inSubgraph nodes)
                            Or  nodes -> Or  (Set.filter inSubgraph nodes)
                            _         -> uf
@@ -143,34 +143,34 @@ prettySet :: (e -> String) -> Set e -> String
 prettySet prettyElement set =
   "{" ++ intercalate ", " (Prelude.map prettyElement (Set.toList set)) ++ "}"
 
-data PrettyLogicalBase r v n = PrettyLogicalBase {
+data PrettyOperatorBase r v n = PrettyOperatorBase {
   prettyRelation :: r -> String,
   prettyVariable :: v -> String,
   prettyNode :: n -> String
 }
 
-prettyUnfolding :: PrettyLogicalBase r v n -> Unfolding r v n -> String
-prettyUnfolding pb (Atom dpAtom) =
+prettyOperator :: PrettyOperatorBase r v n -> Operator r v n -> String
+prettyOperator pb (Atom dpAtom) =
   prettyAtom (prettyRelation pb) (prettyVariable pb) dpAtom
-prettyUnfolding pb (Equality v w) = let pVar = prettyVariable pb
+prettyOperator pb (Equality v w) = let pVar = prettyVariable pb
   in pVar v ++ " = " ++ pVar w 
-prettyUnfolding pb (And s) = "and " ++ prettySet (prettyNode pb) s
-prettyUnfolding pb (Or s) = "or " ++ prettySet (prettyNode pb) s
-prettyUnfolding pb (Exists v x) =
+prettyOperator pb (And s) = "and " ++ prettySet (prettyNode pb) s
+prettyOperator pb (Or s) = "or " ++ prettySet (prettyNode pb) s
+prettyOperator pb (Exists v x) =
   "exists " ++ (prettyVariable pb) v ++ " . " ++ (prettyNode pb) x
-prettyUnfolding pb (Project v x) =
+prettyOperator pb (Project v x) =
   "proj " ++ (prettyVariable pb) v ++ " . " ++ (prettyNode pb) x
-prettyUnfolding pb (Assign v w x) =  let pVar = prettyVariable pb
+prettyOperator pb (Assign v w x) =  let pVar = prettyVariable pb
   in (prettyNode pb) x ++ "[" ++ pVar v ++ "/" ++ pVar w ++ "]"
 
-prettyGraphPrinter :: PrettyLogicalBase r v n -> Graph r v n -> String
-prettyGraphPrinter pb = BG.prettyGraphPrinter (prettyUnfolding pb)
+prettyGraphPrinter :: PrettyOperatorBase r v n -> Graph r v n -> String
+prettyGraphPrinter pb = BG.prettyGraphPrinter (prettyOperator pb)
                                               (prettyVariable pb)
                                               (prettyNode pb)
 
 showGraph :: (Show r, Show v, Show n) => Graph r v n -> String
-showGraph = prettyGraphPrinter $ PrettyLogicalBase show show show
+showGraph = prettyGraphPrinter $ PrettyOperatorBase show show show
 
 prettyGraph :: (Pretty r, Pretty v, Pretty n) => Graph r v n -> String
-prettyGraph = prettyGraphPrinter $ PrettyLogicalBase pretty pretty pretty
+prettyGraph = prettyGraphPrinter $ PrettyOperatorBase pretty pretty pretty
 

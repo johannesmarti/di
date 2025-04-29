@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set
 
 import Atom as At
-import LogicalGraph
+import OperatorGraph
 import Pretty
 import Program
 import Schema
@@ -21,7 +21,7 @@ type Node = Int
 
 data PartialGraphData r v = PartialGraphData {
   outputVarMap :: Map Node (Set v),
-  unfoldingMap :: Map Node (Unfolding r v Node)
+  unfoldingMap :: Map Node (Operator r v Node)
 }
 
 emptyGraphData :: PartialGraphData r v
@@ -33,7 +33,7 @@ intoGraph pgd = let
     ufs = unfoldingMap pgd
     dom = assert (keysSet ovs == keysSet ufs) $ keysSet ovs
     f n = (ufs ! n, ovs ! n)
-  in LogicalGraph.fromSet dom f
+  in OperatorGraph.fromSet dom f
 
 type GraphConstructor r v x = State (PartialGraphData r v) x
 
@@ -54,18 +54,18 @@ addNode outputVariables = do
   put $ cs { outputVarMap = Map.insert n outputVariables (outputVarMap cs) }
   return n
 
-setNode :: Ord v => Node -> Unfolding r v Node -> GraphConstructor r v ()
+setNode :: Ord v => Node -> Operator r v Node -> GraphConstructor r v ()
 setNode n uf = do
   PartialGraphData outVarMap ufMap <- get
   put $ assert (n `Map.member` outVarMap) $
         assert (not (n `Map.member` ufMap)) $
-        assert (outVarMap ! n == outputVariablesFromUnfolding (outVarMap !) uf) $
+        assert (outVarMap ! n == outputVariablesFromOperator (outVarMap !) uf) $
         PartialGraphData outVarMap (Map.insert n uf ufMap)
 
-constructNode :: Ord v => Unfolding r v Node -> GraphConstructor r v Node
+constructNode :: Ord v => Operator r v Node -> GraphConstructor r v Node
 constructNode uf = do
   PartialGraphData outVarMap _ <- get
-  let outVars = outputVariablesFromUnfolding (outVarMap !) uf
+  let outVars = outputVariablesFromOperator (outVarMap !) uf
   n <- addNode outVars
   setNode n uf
   return n
@@ -94,7 +94,7 @@ constructBasePredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = let
       argList = argumentListForPredicate predicate arity
       atom = At.Atom predicate argList
-    in constructNode (LogicalGraph.Atom atom)
+    in constructNode (OperatorGraph.Atom atom)
 
 addDefinedPredicates :: (Ord r, Ord v) => Schema r
                                           -> Constructor r v (Map r Node)
