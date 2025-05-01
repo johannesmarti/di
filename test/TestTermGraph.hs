@@ -4,7 +4,7 @@ import Test.Hspec
 
 import Data.Set
 
-import Examples.LogicalGraphs
+import Examples.OperatorGraphs
 import qualified BaseGraph as BG
 import qualified TermGraph as TG
 

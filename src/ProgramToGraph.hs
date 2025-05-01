@@ -59,13 +59,13 @@ setNode n uf = do
   PartialGraphData outVarMap ufMap <- get
   put $ assert (n `Map.member` outVarMap) $
         assert (not (n `Map.member` ufMap)) $
-        assert (outVarMap ! n == outputVariablesFromOperator (outVarMap !) uf) $
+        assert (outVarMap ! n == outputVariablesOfOperator (outVarMap !) uf) $
         PartialGraphData outVarMap (Map.insert n uf ufMap)
 
 constructNode :: Ord v => Operator r v Node -> GraphConstructor r v Node
 constructNode uf = do
   PartialGraphData outVarMap _ <- get
-  let outVars = outputVariablesFromOperator (outVarMap !) uf
+  let outVars = outputVariablesOfOperator (outVarMap !) uf
   n <- addNode outVars
   setNode n uf
   return n

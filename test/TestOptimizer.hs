@@ -2,8 +2,8 @@ module TestOptimizer (spec) where
 
 import Test.Hspec
 
-import Examples.LogicalGraphs
-import LogicalGraph
+import Examples.OperatorGraphs
+import OperatorGraph
 import Optimizer.RemoveTopBot
 import Optimizer.Reachability
 

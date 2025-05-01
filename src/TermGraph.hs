@@ -14,21 +14,32 @@ import qualified OperatorGraph as OG
 import Pretty
 
 
-data Term r v n =
-    Layer (OG.Operator r v (Term r v n)) | Leaf n
+data Term r v n = Leaf n | Layer (OG.Operator r v (Term r v n))
   deriving (Eq,Ord)
 
 nodesInTerm :: Ord n => Term r v n -> Set n
-nodesInTerm (Layer uf) =
-  OG.foldOperator $ OG.mapOperator nodesInTerm uf
 nodesInTerm (Leaf n) = Set.singleton n
+nodesInTerm (Layer o) = OG.foldOperator $ OG.mapOperator nodesInTerm o
+
+mapTerm :: (Ord r, Ord v, Ord m) => (n -> m) -> Term r v n -> Term r v m
+mapTerm f (Leaf n) = Leaf $ f n
+mapTerm f (Layer o) = Layer $ OG.mapOperator (mapTerm f) o
+
+outputVariablesFromInputVariables :: Ord v => Term r v (Set v) -> Set v
+outputVariablesFromInputVariables (Leaf ov) = ov
+outputVariablesFromInputVariables (Layer o) =
+  OG.outputVariablesFromInputVariables . OG.mapOperator outputVariablesFromInputVariables $ o
+
+outputVariablesOfTerm :: (Ord r, Ord v) => (n -> Set v) -> Term r v n -> Set v
+outputVariablesOfTerm outputVariablesOfNode =
+  outputVariablesFromInputVariables . mapTerm outputVariablesOfNode
 
 type Graph r v n = BG.Graph v (Term r v n) n
 
 -- for checking the consistency of the data
 
-isCoherent :: (Ord v, Ord n) => Graph r v n -> Bool
-isCoherent = BG.isCoherent nodesInTerm undefined
+isCoherent :: (Ord r, Ord v, Ord n) => Graph r v n -> Bool
+isCoherent = BG.isCoherent outputVariablesOfTerm nodesInTerm
 
 -- These are some constructors from LogicalGraph. They should maybe go into their own file
 

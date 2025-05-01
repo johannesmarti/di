@@ -3,7 +3,8 @@ module OperatorGraph (
   mapOperator,
   foldOperator,
   BG.unfolding,
-  outputVariablesFromOperator,
+  outputVariablesFromInputVariables,
+  outputVariablesOfOperator,
   Graph,
   BG.dataMap,
   BG.domain,
@@ -64,16 +65,28 @@ nodesInOperator (Project v a) = Set.singleton a
 nodesInOperator (Assign v w a) = Set.singleton a
 nodesInOperator _ = Set.empty
 
-inputVariablesFromOperator :: (Ord v, Ord n) =>
-                              (n -> Set v) -> Operator r v n -> Maybe (Set v)
-inputVariablesFromOperator outVars uf =
-  BG.inputVariablesFromSuccessors outVars (nodesInOperator uf)
+outputVariablesFromSet :: Ord v => Set (Set v) -> Set v
+outputVariablesFromSet setOfSets = assert (Set.size setOfSets <= 1) $
+  case Set.lookupMin setOfSets of
+    Nothing -> Set.empty
+    Just s -> s
 
-outputVariablesFromOperator :: (Ord v, Ord n) =>
-                               (n -> Set v) -> Operator r v n -> Set v
-outputVariablesFromOperator outVars uf =
-  outputVariablesFromInputVariables uf . fromJust $
-        inputVariablesFromOperator outVars uf
+outputVariablesFromInputVariables :: Ord v => Operator r v (Set v) -> Set v
+outputVariablesFromInputVariables (Atom at) = Set.fromList $ arguments at
+outputVariablesFromInputVariables (Equality v w) = Set.fromList $ [v, w]
+outputVariablesFromInputVariables (And inVars) = outputVariablesFromSet inVars
+outputVariablesFromInputVariables (Or inVars) = outputVariablesFromSet inVars
+outputVariablesFromInputVariables (Exists v inVars) = Set.delete v inVars
+outputVariablesFromInputVariables (Project v inVars) =
+  assert (not $ v `Set.member` inVars) $ Set.insert v inVars
+outputVariablesFromInputVariables (Assign v w inVars) = 
+  assert (not $ v `Set.member` inVars)
+  assert (w `Set.member` inVars) $ Set.insert v (Set.delete w inVars)
+-- TODO: in pretty code these asserts where also checked as part of the bool computation
+
+outputVariablesOfOperator :: Ord v => (n -> Set v) -> Operator r v n -> Set v
+outputVariablesOfOperator outputVariablesOfNode =
+  outputVariablesFromInputVariables . mapOperator outputVariablesOfNode
 
 type Graph r v n = BG.Graph v (Operator r v n) n
 
@@ -82,25 +95,10 @@ successorsOfNode = BG.successorsOfNode nodesInOperator
 
 -- checking the consistency of the data
 
-outputVariablesFromInputVariables :: Ord v => Operator r v n -> Set v -> Set v
-outputVariablesFromInputVariables (Atom at) _ = Set.fromList $ arguments at
-outputVariablesFromInputVariables (Equality v w) _ = Set.fromList $ [v, w]
-outputVariablesFromInputVariables (And _) inVars = inVars
-outputVariablesFromInputVariables (Or _) inVars = inVars
-outputVariablesFromInputVariables (Exists v _) inVars = Set.delete v inVars
-outputVariablesFromInputVariables (Project v _) inVars =
-  assert (not $ v `Set.member` inVars) $ Set.insert v inVars
-outputVariablesFromInputVariables (Assign v w _) inVars = 
-  assert (not $ v `Set.member` inVars)
-  assert (w `Set.member` inVars) $ Set.insert v (Set.delete w inVars)
--- TODO: in pretty code these asserts where also checked as part of the bool computation
-
 -- TODO: Should also check that renamed, bound and projected variables make
 -- sense. I am not yet sure how to do this well.
 isCoherent :: (Ord v, Ord n) => Graph r v n -> Bool
-isCoherent = BG.isCoherent nodesInOperator
-                           outputVariablesFromInputVariables
-
+isCoherent = BG.isCoherent outputVariablesOfOperator nodesInOperator
 
 -- creation
 

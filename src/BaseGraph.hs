@@ -7,7 +7,6 @@ module BaseGraph (
   outputVariablesOfNode,
   predecessorsOfNode,
   successorsOfNode,
-  inputVariablesFromSuccessors,
   isCoherent,
   fromTupleList,
   BaseGraph.fromSet,
@@ -81,44 +80,24 @@ succPredMatch nodesInUnfolding graph =
     dom = domain graph
     pred' = converse dom (successorsOfNode nodesInUnfolding graph)
 
-inputVariablesFromSuccessors :: (Ord v, Ord n) => (n -> Set v) -> Set n
-                                                  -> Maybe (Set v)
-inputVariablesFromSuccessors outVars succsSet =
-  fmap outVars (Set.lookupMin succsSet)
-
 outputVariablesCoherent :: (Ord v, Ord n) =>
-                           (u -> Set n) -> (u -> Set v -> Set v)
-                           -> Graph v u n -> Bool
-outputVariablesCoherent nodesInUnfolding outputVariablesFromInputVariables
-                        graph =
+  (u -> Set v) -> Graph v u n -> Bool
+outputVariablesCoherent outputVariablesOfUnfolding graph =
     all checkVariablesAroundNode (Map.toList (dataMap graph)) where
-  checkVariablesAroundNode (_, NodeData uf _ outVars) = let
-      maybeInputVars = let succsSet = nodesInUnfolding uf
-                           outVars = outputVariablesOfNode graph
-                           someInVars = inputVariablesFromSuccessors outVars
-                                                                     succsSet
-                           allInVars = Prelude.map outVars (Set.toList succsSet)
-        in case someInVars of
-             Just set -> if (all (== set) allInVars)
-                           then Just set
-                           else Nothing
-             Nothing -> Just (error "we don't have incoming nodes")
-                          -- this error will only trigger if there is a
-                          -- mistake in outputVariablesFromInputVariables
-    in case maybeInputVars of
-         Just set -> outputVariablesFromInputVariables uf set == outVars
-         Nothing  -> False
+  checkVariablesAroundNode (_, NodeData uf _ outVars) =
+    outVars == outputVariablesOfUnfolding uf
 
 -- Need to make sure that this coherency test is applied as an assert in all
 -- creation functions using this module. This is not done in the creation
 -- functions defined here because then their signature would depend on
 -- whether assertions are activated.
-isCoherent :: (Ord v, Ord n) => (u -> Set n) -> (u -> Set v -> Set v)
-                                -> Graph v u n -> Bool
-isCoherent nodesInUnfolding outputVariablesFromInputVariables graph =
+isCoherent :: (Ord v, Ord n) =>
+  ((n -> Set v) -> u -> Set v) -> (u -> Set n) -> Graph v u n -> Bool
+isCoherent outputVariablesOfUnfolding nodesInUnfolding graph =
   succPredInDom nodesInUnfolding graph &&
   succPredMatch nodesInUnfolding graph &&
-  outputVariablesCoherent nodesInUnfolding outputVariablesFromInputVariables graph
+  outputVariablesCoherent (outputVariablesOfUnfolding outVars) graph where
+    outVars = outputVariablesOfNode graph
 
 -- creation
 
