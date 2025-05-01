@@ -116,8 +116,7 @@ projectTailRec (nextVar:rest) continuationNode = do
 project :: Ord v => [v] -> Node -> GraphConstructor r v Node
 project = projectTailRec
 
-embedEquality :: Ord v => Set v -> (v, v)
-                 -> GraphConstructor r v Node
+embedEquality :: Ord v => Set v -> (v, v) -> GraphConstructor r v Node
 embedEquality context (a, b) = assert (a /= b) $
                                assert (a `Set.member` context) $
                                assert (b `Set.member` context) $ let

@@ -34,36 +34,33 @@ import qualified Atom as At
 import qualified BaseGraph as BG
 import Pretty
 
-data Operator r v n = Atom (At.Atom r v) | Equality v v |
+data Switch v = Switch {
+  outSet :: Set v,
+  inSet :: Set v
+} deriving (Eq, Ord)
+
+data Operator r v n = Atom (At.Atom r v) |
                       And (Set n) | Or (Set n) |
-                      Exists v n | Project v n | Assign v v n
-  deriving (Eq,Ord)
+                      VariableSwitch (Switch v) n
+  deriving (Eq, Ord)
 
 mapOperator :: Ord m => (n -> m) -> Operator r v n -> Operator r v m
 mapOperator f (Atom a) = Atom a
-mapOperator f (Equality v w) = Equality v w
 mapOperator f (And s) = And (Set.map f s)
 mapOperator f (Or s) = Or (Set.map f s)
-mapOperator f (Exists v n) = Exists v (f n)
-mapOperator f (Project v n) = Project v (f n)
-mapOperator f (Assign v w n) = Assign v w (f n)
+mapOperator f (VariableSwitch s n) = VariableSwitch s (f n)
 
 foldOperator :: Monoid n => Operator r v n -> n
 foldOperator (Atom a) = mempty
-foldOperator (Equality v w) = mempty
 foldOperator (And s) = Data.Foldable.fold s
 foldOperator (Or s) = Data.Foldable.fold s 
-foldOperator (Exists v n) = n
-foldOperator (Project v n) = n
-foldOperator (Assign v w n) = n
+foldOperator (VariableSwitch _ n) = n
 
 nodesInOperator :: Ord n => Operator r v n -> Set n
+nodesInOperator (Atom _) = Set.empty
 nodesInOperator (And s) = s
 nodesInOperator (Or s) = s
-nodesInOperator (Exists v a) = Set.singleton a
-nodesInOperator (Project v a) = Set.singleton a
-nodesInOperator (Assign v w a) = Set.singleton a
-nodesInOperator _ = Set.empty
+nodesInOperator (VariableSwitch _ a) = Set.singleton a
 
 outputVariablesFromSet :: Ord v => Set (Set v) -> Set v
 outputVariablesFromSet setOfSets = assert (Set.size setOfSets <= 1) $
@@ -73,16 +70,13 @@ outputVariablesFromSet setOfSets = assert (Set.size setOfSets <= 1) $
 
 outputVariablesFromInputVariables :: Ord v => Operator r v (Set v) -> Set v
 outputVariablesFromInputVariables (Atom at) = Set.fromList $ arguments at
-outputVariablesFromInputVariables (Equality v w) = Set.fromList $ [v, w]
-outputVariablesFromInputVariables (And inVars) = outputVariablesFromSet inVars
-outputVariablesFromInputVariables (Or inVars) = outputVariablesFromSet inVars
-outputVariablesFromInputVariables (Exists v inVars) = Set.delete v inVars
-outputVariablesFromInputVariables (Project v inVars) =
-  assert (not $ v `Set.member` inVars) $ Set.insert v inVars
-outputVariablesFromInputVariables (Assign v w inVars) = 
-  assert (not $ v `Set.member` inVars)
-  assert (w `Set.member` inVars) $ Set.insert v (Set.delete w inVars)
--- TODO: in pretty code these asserts where also checked as part of the bool computation
+outputVariablesFromInputVariables (And inVarSet) =
+  outputVariablesFromSet inVarSet
+outputVariablesFromInputVariables (Or inVarSet) =
+  outputVariablesFromSet inVarSet
+outputVariablesFromInputVariables (VariableSwitch (Switch ov iv) inVars) =
+  assert (ov `Set.disjoint` inVars) $
+  assert (iv `Set.isSubsetOf` inVars) $ Set.union ov (Set.difference inVars iv)
 
 outputVariablesOfOperator :: Ord v => (n -> Set v) -> Operator r v n -> Set v
 outputVariablesOfOperator outputVariablesOfNode =
@@ -150,16 +144,11 @@ data PrettyOperatorBase r v n = PrettyOperatorBase {
 prettyOperator :: PrettyOperatorBase r v n -> Operator r v n -> String
 prettyOperator pb (Atom dpAtom) =
   prettyAtom (prettyRelation pb) (prettyVariable pb) dpAtom
-prettyOperator pb (Equality v w) = let pVar = prettyVariable pb
-  in pVar v ++ " = " ++ pVar w 
 prettyOperator pb (And s) = "and " ++ prettySet (prettyNode pb) s
 prettyOperator pb (Or s) = "or " ++ prettySet (prettyNode pb) s
-prettyOperator pb (Exists v x) =
-  "exists " ++ (prettyVariable pb) v ++ " . " ++ (prettyNode pb) x
-prettyOperator pb (Project v x) =
-  "proj " ++ (prettyVariable pb) v ++ " . " ++ (prettyNode pb) x
-prettyOperator pb (Assign v w x) =  let pVar = prettyVariable pb
-  in (prettyNode pb) x ++ "[" ++ pVar v ++ "/" ++ pVar w ++ "]"
+prettyOperator pb (VariableSwitch (Switch ov iv) x) = let
+    pVars s = intercalate ", " (Prelude.map (prettyVariable pb) (Set.toList s))
+  in "[" ++ pVars ov ++ "/" ++ pVars iv ++ "]" ++ prettyNode pb x
 
 prettyGraphPrinter :: PrettyOperatorBase r v n -> Graph r v n -> String
 prettyGraphPrinter pb = BG.prettyGraphPrinter (prettyOperator pb)
