@@ -155,11 +155,15 @@ subgraphOnPredicate filterUnfolding inSubgraph (Graph gm) = let
 
 -- pretty printing
 
+prettySet :: (e -> String) -> Set e -> String
+prettySet prettyElement set =
+  "{" ++ intercalate ", " (Prelude.map prettyElement (Set.toList set)) ++ "}"
+
 prettyGraphPrinter :: (u -> String) -> (v -> String) -> (n -> String)
                       -> Graph v u n -> String
 prettyGraphPrinter prettyUnfolding pVar pNode (Graph m) =
   let prettyOutVars set = intercalate ", " (Prelude.map pVar (Set.toList set))
       prettyNode (n, NodeData uf _ outVars) =
-        (pNode n) ++ " : [" ++ prettyOutVars outVars ++ "] > "
+        (pNode n) ++ " : " ++ prettySet pVar outVars ++ " > "
                   ++ prettyUnfolding uf ++ "\n"
   in concatMap prettyNode (Map.toList m)

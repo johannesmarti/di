@@ -8,7 +8,7 @@ import OperatorGraph as OG
 import TermGraph as TG
 import Optimizer.RemoveTopBot
 import Optimizer.Reachability
-import ProgramToGraph
+--import ProgramToGraph
 
 main :: IO ()
 main = do

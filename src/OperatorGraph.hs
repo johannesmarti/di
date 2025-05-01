@@ -1,4 +1,6 @@
 module OperatorGraph (
+  Switch,
+  switch,
   Operator(..),
   mapOperator,
   foldOperator,
@@ -38,6 +40,9 @@ data Switch v = Switch {
   outSet :: Set v,
   inSet :: Set v
 } deriving (Eq, Ord)
+
+switch :: Ord v => [v] -> [v] -> Switch v
+switch ovList ivList = Switch (Set.fromList ovList) (Set.fromList ivList)
 
 data Operator r v n = Atom (At.Atom r v) |
                       And (Set n) | Or (Set n) |
@@ -131,10 +136,6 @@ subgraphOnPredicate inSubgraph graph =
 
 -- pretty printing
 
-prettySet :: (e -> String) -> Set e -> String
-prettySet prettyElement set =
-  "{" ++ intercalate ", " (Prelude.map prettyElement (Set.toList set)) ++ "}"
-
 data PrettyOperatorBase r v n = PrettyOperatorBase {
   prettyRelation :: r -> String,
   prettyVariable :: v -> String,
@@ -144,8 +145,16 @@ data PrettyOperatorBase r v n = PrettyOperatorBase {
 prettyOperator :: PrettyOperatorBase r v n -> Operator r v n -> String
 prettyOperator pb (Atom dpAtom) =
   prettyAtom (prettyRelation pb) (prettyVariable pb) dpAtom
-prettyOperator pb (And s) = "and " ++ prettySet (prettyNode pb) s
-prettyOperator pb (Or s) = "or " ++ prettySet (prettyNode pb) s
+prettyOperator pb (And s) =
+  case Set.toList s of
+    []  -> "top"
+    [e] -> prettyNode pb e
+    lst -> intercalate " and " (Prelude.map (prettyNode pb) lst)
+prettyOperator pb (Or s) =
+  case Set.toList s of
+    []  -> "bot"
+    [e] -> prettyNode pb e
+    lst -> intercalate " or " (Prelude.map (prettyNode pb) lst)
 prettyOperator pb (VariableSwitch (Switch ov iv) x) = let
     pVars s = intercalate ", " (Prelude.map (prettyVariable pb) (Set.toList s))
   in "[" ++ pVars ov ++ "/" ++ pVars iv ++ "]" ++ prettyNode pb x

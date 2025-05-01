@@ -39,7 +39,6 @@ removeTop graph = let
 removeBot :: (Ord v, Ord n) => Graph r v n -> Graph r v n
 removeBot graph = let
     isStarting (Atom _)       = True
-    isStarting (Equality _ _) = True
     isStarting (And succs)    = Set.null succs
     isStarting _              = False
     nonBotNodes = backwardsElementFlow graph isStarting

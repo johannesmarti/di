@@ -77,6 +77,7 @@ instance (Pretty r, Pretty v) => Pretty (DefinedVariable r v) where
   pretty (PredicateVariable r i) = pretty r ++ show i
   pretty (RuleVariable x) = pretty x
 
+{-
 argumentListForPredicate :: r -> Int -> [DefinedVariable r v]
 argumentListForPredicate predicate arity = 
   [PredicateVariable predicate pos | pos <- [0..(arity - 1)]]
@@ -233,3 +234,9 @@ programToGraphWithTrace schemas program = (intoGraph graphData, m) where
 programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
                                     -> Graph r (DefinedVariable r v) Node
 programToGraph schemas program = fst $ programToGraphWithTrace schemas program
+
+-}
+programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
+                                    -> Graph r (DefinedVariable r v) Node
+programToGraph schemas program = undefined
+
