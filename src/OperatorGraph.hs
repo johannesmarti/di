@@ -1,5 +1,5 @@
 module OperatorGraph (
-  Switch,
+  Switch(..),
   switch,
   Operator(..),
   mapOperator,
@@ -7,6 +7,8 @@ module OperatorGraph (
   BG.unfolding,
   outputVariablesFromInputVariables,
   outputVariablesOfOperator,
+  projectOperator,
+  existsOperator,
   Graph,
   BG.dataMap,
   BG.domain,
@@ -87,6 +89,14 @@ outputVariablesOfOperator :: Ord v => (n -> Set v) -> Operator r v n -> Set v
 outputVariablesOfOperator outputVariablesOfNode =
   outputVariablesFromInputVariables . mapOperator outputVariablesOfNode
 
+projectOperator :: v -> n -> Operator r v n
+projectOperator variable node =
+  VariableSwitch (Switch (Set.singleton variable) Set.empty) node
+
+existsOperator :: v -> n -> Operator r v n
+existsOperator variable node =
+  VariableSwitch (Switch Set.empty (Set.singleton variable)) node
+
 type Graph r v n = BG.Graph v (Operator r v n) n
 
 successorsOfNode :: Ord n => Graph r v n -> n -> Set n
@@ -157,7 +167,7 @@ prettyOperator pb (Or s) =
     lst -> intercalate " or " (Prelude.map (prettyNode pb) lst)
 prettyOperator pb (VariableSwitch (Switch ov iv) x) = let
     pVars s = intercalate ", " (Prelude.map (prettyVariable pb) (Set.toList s))
-  in "[" ++ pVars ov ++ "/" ++ pVars iv ++ "]" ++ prettyNode pb x
+  in "[" ++ pVars ov ++ "/" ++ pVars iv ++ "] " ++ prettyNode pb x
 
 prettyGraphPrinter :: PrettyOperatorBase r v n -> Graph r v n -> String
 prettyGraphPrinter pb = BG.prettyGraphPrinter (prettyOperator pb)

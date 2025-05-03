@@ -10,6 +10,7 @@ import Control.Monad.State.Strict
 import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
+import Data.Tuple (swap)
 
 import Atom as At
 import OperatorGraph
@@ -77,7 +78,6 @@ instance (Pretty r, Pretty v) => Pretty (DefinedVariable r v) where
   pretty (PredicateVariable r i) = pretty r ++ show i
   pretty (RuleVariable x) = pretty x
 
-{-
 argumentListForPredicate :: r -> Int -> [DefinedVariable r v]
 argumentListForPredicate predicate arity = 
   [PredicateVariable predicate pos | pos <- [0..(arity - 1)]]
@@ -97,90 +97,54 @@ constructBasePredicates schema = traverseWithKey mapper schema where
       atom = At.Atom predicate argList
     in constructNode (OperatorGraph.Atom atom)
 
-addDefinedPredicates :: (Ord r, Ord v) => Schema r
-                                          -> Constructor r v (Map r Node)
+addDefinedPredicates :: (Ord r, Ord v) =>
+  Schema r -> Constructor r v (Map r Node)
 addDefinedPredicates schema = traverseWithKey mapper schema where
   mapper predicate arity = addNode (outputVariablesForPredicate predicate arity)
 
-projectSimpleRec :: Ord v => [v] -> Node -> GraphConstructor r v Node
-projectSimpleRec [] continuationNode = return continuationNode
-projectSimpleRec (nextVar:rest) continuationNode = do
-  inner <- project rest continuationNode
-  constructNode (Project nextVar inner)
+constructSwitch :: Ord v => Node -> Switch v -> GraphConstructor r v Node
+constructSwitch baseNode sw = do
+  constructNode (VariableSwitch sw baseNode)
 
-projectTailRec :: Ord v => [v] -> Node -> GraphConstructor r v Node
-projectTailRec [] continuationNode = return continuationNode
-projectTailRec (nextVar:rest) continuationNode = do
-  inner <- constructNode (Project nextVar continuationNode)
-  project rest inner
-  
-project :: Ord v => [v] -> Node -> GraphConstructor r v Node
-project = projectTailRec
+pairsToSuccessorMap :: (Ord a, Ord b) => [(a,b)] -> Map a (Set b)
+pairsToSuccessorMap pairs = worker pairs Map.empty where
+  worker [] m = m
+  worker ((x,y):ps) m = worker ps (Map.alter (ins y) x m)
+  ins y Nothing = Just (Set.singleton y)
+  ins y (Just set) = Just (Set.insert y set)
 
-embedEquality :: Ord v => Set v -> (v, v) -> GraphConstructor r v Node
-embedEquality context (a, b) = assert (a /= b) $
-                               assert (a `Set.member` context) $
-                               assert (b `Set.member` context) $ let
-    varsToProject = Set.toList . Set.delete a . Set.delete b $ context
-  in do eqNode <- constructNode (Equality a b)
-        project varsToProject eqNode
-
-quantifyAway :: Ord v => Node -> v -> GraphConstructor r v Node
-quantifyAway baseNode variable = constructNode (Exists variable baseNode)
-
-constructAssign :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
-constructAssign baseNode (assignee, assigned) = do
-  constructNode (Assign assignee assigned baseNode)
-
-constructExiEquality :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
-constructExiEquality baseNode (keptVar, removedVar) = do
-  nextOutVars <- outVarsOfNode baseNode
-  equality <- embedEquality nextOutVars (keptVar, removedVar)
-  conjunction <- constructNode (And (Set.fromList [equality, baseNode]))
-  quantifyAway conjunction removedVar
-
-constructProjEquality :: Ord v => Node -> (v, v) -> GraphConstructor r v Node
-constructProjEquality baseNode (keptVar, projectedVar) = do
-  inner <- constructNode (Project projectedVar baseNode)
-  nextOutVars <- outVarsOfNode inner
-  equality <- embedEquality nextOutVars (keptVar, projectedVar)
-  constructNode (And (Set.fromList [equality, inner]))
-
-processArgumentListWorker :: Ord v => [(v,Int)] -> Map v Int -> [(Int,Int)]
-                                      -> (Map v Int, [(Int,Int)])
-processArgumentListWorker [] env eqs = (env, eqs)
-processArgumentListWorker ((var, pos) : rest) env eqs = let
-  (env', eqs') = case Map.lookup var env of
-                   Just prevPos -> (env, (prevPos,pos):eqs)
-                   Nothing      -> (Map.insert var pos env, eqs)
-  in processArgumentListWorker rest env' eqs'
-
-processArgumentList :: Ord v => [v] -> (Map v Int, [(Int, Int)])
-processArgumentList args =
-  processArgumentListWorker (zip args [0..]) Map.empty []
+processArgumentList :: Ord v => [v] -> [(v,Int)]
+processArgumentList args = zip args [0..]
 
 nodesForBodyAtom :: (Ord r, Ord v) => (r -> Node) -> Atom r v
                                       -> Constructor r v (Node, Set v)
 nodesForBodyAtom nodeMap (At.Atom predicate args) = let
     node = nodeMap predicate
-    (env, nakedEqs) = processArgumentList args
-    e = PredicateVariable predicate
-    eqs = Prelude.map (\(a,b) -> (e a, e b)) nakedEqs
-    assigns = Prelude.map (\(a,b) -> (RuleVariable a, e b)) . Map.toList $ env
-  in do topLevelEquality <- foldlM constructExiEquality node eqs
-        topLevelAssign <- foldlM constructAssign topLevelEquality assigns
-        return (topLevelAssign, keysSet env)
+    env = pairsToSuccessorMap . processArgumentList $ args
+    toSwitch (v, posSet) = Switch (Set.singleton (RuleVariable v))
+                                  (Set.map (PredicateVariable predicate) posSet)
+    switches = Prelude.map toSwitch (Map.toList env)
+  in do topLevelSwitch <- foldlM constructSwitch node switches
+        return (topLevelSwitch, keysSet env)
+
+quantifyAway :: Ord v => Node -> v -> GraphConstructor r v Node
+quantifyAway baseNode variable =
+  constructNode (existsOperator variable baseNode)
+
+projectAway :: Ord v => Node -> v -> GraphConstructor r v Node
+projectAway baseNode variable =
+  constructNode (projectOperator variable baseNode)
 
 embed :: (Ord r, Ord v) => Set v -> Set v -> Node -> Constructor r v Node
-embed outerSet innerSet = let
+embed outerSet innerSet node = let
     diff = outerSet `Set.difference` innerSet
     varsToProject = Prelude.map RuleVariable . Set.toList $ diff
-  in project varsToProject
+  in foldM projectAway node varsToProject
 
 bodyConjunction :: (Ord r, Ord v) => (r -> Node) -> [Atom r v]
                                      -> Constructor r v (Node, Set v)
-bodyConjunction nodeMap bodyAtoms = do
-  let mapper atom = nodesForBodyAtom nodeMap atom
+bodyConjunction predicateToNode bodyAtoms = do
+  let mapper atom = nodesForBodyAtom predicateToNode atom
   tupleList <- mapM mapper bodyAtoms
   let usedVariables = Prelude.foldl Set.union Set.empty
                                     (Prelude.map snd tupleList)
@@ -192,30 +156,29 @@ bodyConjunction nodeMap bodyAtoms = do
 constructNodesForRule :: (Ord r, Ord v) => (r -> Node) -> Rule r v
                                            -> Constructor r v Node
 constructNodesForRule predicateToNode (Rule headAtom bodyAtoms) = let
-    (At.Atom headPredicate headArgs) = headAtom
-    (env, nakedEqs) = processArgumentList headArgs
-    answerVars = Map.keysSet env
+    At.Atom headPredicate headArgs = headAtom
+    answerVars = Set.fromList headArgs
+    env = pairsToSuccessorMap (Prelude.map swap (processArgumentList headArgs))
     e = PredicateVariable headPredicate
-    eqs = Prelude.map (\(a,b) -> (e a, e b)) nakedEqs
-    assigns = Prelude.map (\(a,b) -> (e b, RuleVariable a)) . Map.toList $ env
+    toSwitch (pos, varSet) = Switch (Set.singleton (e pos))
+                                    (Set.map RuleVariable varSet)
+    switches = Prelude.map toSwitch (Map.toList env)
   in do
     (bodyNode, usedVars) <- bodyConjunction predicateToNode bodyAtoms
     let diff = usedVars `Set.difference` answerVars
     let toQuantifyAway = Prelude.map RuleVariable (Set.toList diff)
     quantifiedNode <- foldM quantifyAway bodyNode toQuantifyAway
-    topLevelAssign <- foldM constructAssign quantifiedNode assigns
-    foldM constructProjEquality topLevelAssign eqs
+    foldM constructSwitch quantifiedNode switches
 
 nodesForDefinedPredicate :: (Ord r, Ord v) =>
-                            (r -> Node) -> Program r v -> r -> Constructor r v ()
+  (r -> Node) -> Program r v -> r -> Constructor r v ()
 nodesForDefinedPredicate predicateToNode program predicate = do
   let rules = rulesForPredicate program predicate
   topLevelNodes <- mapM (constructNodesForRule predicateToNode) rules
   setNode (predicateToNode predicate) (Or (Set.fromList topLevelNodes))
 
 constructGraphForProgram :: (Ord r, Ord v) =>
-                                (Schema r, Schema r) -> Program r v
-                                -> Constructor r v (Map r Node)
+  (Schema r, Schema r) -> Program r v -> Constructor r v (Map r Node)
 constructGraphForProgram (definedSchema, baseSchema) program = do
   baseMap <- constructBasePredicates baseSchema
   definedMap <- addDefinedPredicates definedSchema
@@ -225,8 +188,8 @@ constructGraphForProgram (definedSchema, baseSchema) program = do
   return combinedMap
 
 programToGraphWithTrace :: (Ord r, Ord v) =>
-                           (Schema r, Schema r) -> Program r v
-                           -> (Graph r (DefinedVariable r v) Node, Map r Node)
+  (Schema r, Schema r) -> Program r v
+  -> (Graph r (DefinedVariable r v) Node, Map r Node)
 programToGraphWithTrace schemas program = (intoGraph graphData, m) where
   (m, graphData) = runState (constructGraphForProgram schemas program)
                             emptyGraphData
@@ -234,9 +197,3 @@ programToGraphWithTrace schemas program = (intoGraph graphData, m) where
 programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
                                     -> Graph r (DefinedVariable r v) Node
 programToGraph schemas program = fst $ programToGraphWithTrace schemas program
-
--}
-programToGraph :: (Ord r, Ord v) => (Schema r, Schema r) -> Program r v
-                                    -> Graph r (DefinedVariable r v) Node
-programToGraph schemas program = undefined
-
