@@ -67,6 +67,7 @@ library
                      TermGraph,
                      Optimizer.RemoveTopBot, Optimizer.Reachability,
                      LeapFrog,
+                     Data.AbstractTypeSignature, Data.Value, Data.Table,
                      Examples.Programs, Examples.OperatorGraphs
     other-modules:
 

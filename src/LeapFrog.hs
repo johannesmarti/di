@@ -1,5 +1,5 @@
 module LeapFrog (
-
+  LeapFrog(..),
 ) where
 
 import Data.List (sortBy)
@@ -8,10 +8,9 @@ import Data.Ord (comparing)
 data LeapFrog a = LeapFrog {
   current :: a,
   next :: Maybe (LeapFrog a),
-  seek :: a ->  Maybe (LeapFrog a),
+  seek :: a -> Maybe (LeapFrog a),
   down :: Maybe (LeapFrog a)
 }
-
 
 conjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
 conjunction frogs = fromOperationOnFirst Just frogs
@@ -79,3 +78,15 @@ insertOrderedBy cmp value (a:as) = if a `cmp` value == LT
 
 insertOrderedFrog :: Ord a => LeapFrog a -> [LeapFrog a] -> [LeapFrog a]
 insertOrderedFrog = insertOrderedBy (comparing current)
+
+
+existential :: Ord a => Int -> LeapFrog a -> Maybe (LeapFrog a)
+existential position frog = undefined
+
+
+merge :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
+merge mergeFrom mergeTo frog = undefined
+
+split :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
+split splitFrom splitTo frog = undefined
+
