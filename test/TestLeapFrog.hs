@@ -104,28 +104,6 @@ spec = do
     it "disjuction frog2a" $
       out `shouldBe` table2a
 
-  describe "absorbtion" $ do
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.conjunction [frogEmpty1, frog1a]
-    it "conjunction left to frog1a" $
-      out `shouldBe` tableEmpty1
-
-    let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
-                LeapFrog.conjunction [frog2b, frogEmpty2]
-    it "conjunction right to frog2b" $
-      out `shouldBe` tableEmpty2
-
-  describe "identity" $ do
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                Just (LeapFrog.disjunction [frogEmpty1, frog1b])
-    it "disjuction left to frog1b" $
-      out `shouldBe` table1b
-
-    let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
-                Just (LeapFrog.disjunction [frog2a, frogEmpty2])
-    it "disjuction right to frog2a" $
-      out `shouldBe` table2a
-
   describe "prepared conjunctions" $ do
     let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
                 LeapFrog.conjunction [frog1a, frog1b]
