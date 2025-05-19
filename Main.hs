@@ -1,27 +1,50 @@
 module Main where
 
-import Data.Map
+import Data.Maybe
 
-import Examples.OperatorGraphs
-import Examples.Programs
-import OperatorGraph as OG
-import TermGraph as TG
-import Optimizer.RemoveTopBot
-import Optimizer.Reachability
-import ProgramToGraph
+import Data.Value
+import Data.Table
+import LeapFrog
+
+table1 = fromTupleList [IntType,IntType]
+            [[IntValue 1, IntValue 1],
+             [IntValue 1, IntValue 3],
+             [IntValue 2, IntValue 1],
+             [IntValue 4, IntValue 2],
+             [IntValue 4, IntValue 3],
+             [IntValue 4, IntValue 5]]
+
+table2 = fromTupleList [IntType,IntType]
+            [[IntValue 1, IntValue 1],
+             [IntValue 2, IntValue 2],
+             [IntValue 3, IntValue 2],
+             [IntValue 4, IntValue 1],
+             [IntValue 4, IntValue 4],
+             [IntValue 4, IntValue 5]]
+
+{-
+table1 = fromTupleList [IntType]
+            [[IntValue 1],
+             [IntValue 3],
+             [IntValue 4],
+             [IntValue 5],
+             [IntValue 6],
+             [IntValue 8]]
+
+table2 = fromTupleList [IntType]
+            [[IntValue 2],
+             [IntValue 3],
+             [IntValue 8],
+             [IntValue 9]]
+-}
+
+frog1 = fromJust . toLeapFrog $ table1
+frog2 = fromJust . toLeapFrog $ table2
 
 main :: IO ()
 main = do
-  --putStrLn $ prettyGraph trivialGraph
-  --putStrLn "==========="
-  --putStrLn $ OG.prettyGraph transitiveGraph
-  --putStrLn "==========="
-  --putStrLn $ TG.prettyGraph (TG.fromLogicalGraph [2] transitiveGraph)
-  --putStrLn "==========="
-  putStrLn . OG.prettyGraph $ programToGraph
-            (fromList [('T', 2)], fromList [('R', 2)]) transitive
-  putStrLn "==========="
-  putStrLn . OG.prettyGraph $ programToGraph
-            (fromList [('U', 1),('F', 2)],
-             fromList [('B',1),('M', 2),('P',3)])
-            manages
+  --let out = Just (LeapFrog.disjunction [frog1, frog2])
+  let out = LeapFrog.conjunction [frog1, frog2]
+  --let out = toLeapFrog table2
+  let outTuples = LeapFrog.toTupleList 2 out
+  putStrLn . unlines . (map prettyTuple) $ outTuples

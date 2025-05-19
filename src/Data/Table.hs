@@ -10,6 +10,7 @@ module Data.Table (
   merge,
   contains,
   typeSignature,
+  toLeapFrog,
 ) where
 
 import Control.Exception (assert)
@@ -17,7 +18,7 @@ import Control.Exception (assert)
 import qualified Data.Map.Strict as Map
 
 import Data.Value
-import LeapFrog
+import LeapFrog hiding (toTupleList)
 
 data TypedMap x = IntMap (Map.Map Int x)
                 | StringMap (Map.Map String x)

@@ -26,7 +26,7 @@ type TypedSchema p = AbstractTypedSchema p Type
 data Value = IntValue Int
            | StringValue String
            | FloatValue Float
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 valueType :: Value -> Type
 valueType (IntValue _) = IntType

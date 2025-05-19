@@ -107,7 +107,7 @@ test-suite di-test
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Main.hs
-    other-modules:    TestOptimizer, TestTermGraph
+    other-modules:    TestOptimizer, TestTermGraph, TestLeapFrog
     build-depends:    base ^>=4.17.2.1,
                       containers,
                       mtl,

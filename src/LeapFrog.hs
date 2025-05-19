@@ -1,5 +1,8 @@
 module LeapFrog (
   LeapFrog(..),
+  toTupleList,
+  conjunction,
+  disjunction,
 ) where
 
 import Data.List (sortBy)
@@ -12,11 +15,19 @@ data LeapFrog a = LeapFrog {
   down :: Maybe (LeapFrog a)
 }
 
-conjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
-conjunction frogs = fromOperationOnFirst Just frogs
-  
+-- Maybe it would be better to make this tail recursive
+toTupleList :: Int -> Maybe (LeapFrog a) -> [[a]]
+toTupleList 0 _ = [[]]
+toTupleList _ Nothing = []
+toTupleList n (Just frog) = let
+    first = current frog
+    firstTail = toTupleList (n - 1) (down frog)
+    firsts = map (first:) firstTail
+    rest = toTupleList n (next frog)
+  in firsts ++ rest
+
 conjunctionFromStableList :: Ord a => [LeapFrog a] -> LeapFrog a
-conjunctionFromStableList frogs = let 
+conjunctionFromStableList frogs = let
     currentValue = current . head $ frogs
     definedNext = fromOperationOnFirst next frogs
     definedSeek value = fromOperationOnFirst (\f -> seek f value) frogs
@@ -24,28 +35,30 @@ conjunctionFromStableList frogs = let
                      conjunction dFrogs
   in LeapFrog currentValue definedNext definedSeek definedDown
 
-stabelizeWorker :: Ord a => a -> [LeapFrog a] -> [LeapFrog a]
+stabilizeWorker :: Ord a => a -> [LeapFrog a] -> [LeapFrog a]
                               -> Maybe [LeapFrog a]
-stabelizeWorker _ onValue [] = Just onValue
-stabelizeWorker value onValue (f:fs) =
+stabilizeWorker _ onValue [] = Just onValue
+stabilizeWorker value onValue (f:fs) =
   case seek f value of
     Nothing -> Nothing
     Just f' -> let newValue = current f' in
         if newValue == value
-          then stabelizeWorker value (f':onValue) fs
-          else stabelizeWorker newValue [f'] (fs ++ onValue)
+          then stabilizeWorker value (f':onValue) fs
+          else stabilizeWorker newValue [f'] (fs ++ onValue)
 
-stabelize :: Ord a => LeapFrog a -> [LeapFrog a] -> Maybe [LeapFrog a]
-stabelize target others = stabelizeWorker (current target) [target] others
+stabilize :: Ord a => LeapFrog a -> [LeapFrog a] -> Maybe [LeapFrog a]
+stabilize target others = stabilizeWorker (current target) [target] others
 
 fromOperationOnFirst :: Ord a => (LeapFrog a -> Maybe (LeapFrog a))
                                  -> [LeapFrog a] -> Maybe (LeapFrog a)
 fromOperationOnFirst _ [] = error "not going to construct conjunction leapfrog for empty conjunction"
 fromOperationOnFirst o (first:rest) = do
   first' <- o first
-  stableList <- stabelize first' rest
+  stableList <- stabilize first' rest
   return $ conjunctionFromStableList stableList
 
+conjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
+conjunction frogs = fromOperationOnFirst Just frogs
 
 disjunction :: Ord a => [LeapFrog a] -> LeapFrog a
 disjunction = disjunctionFromOrderedList . sortBy (comparing current)

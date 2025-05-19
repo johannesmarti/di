@@ -10,7 +10,6 @@ import qualified TermGraph as TG
 
 spec :: Spec
 spec = describe "example" $ do
-
   let termGraph = TG.fromLogicalGraph [2] transitiveGraph
   let domainTermGraph = BG.domain termGraph
   it "transitive graph is reduced to two states" $
