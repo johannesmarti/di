@@ -125,4 +125,3 @@ spec = do
                 Just (LeapFrog.disjunction [frog2a, frog2b])
     it "tableDis2" $
       out `shouldBe` tableDis2
-

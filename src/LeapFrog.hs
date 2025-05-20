@@ -5,6 +5,7 @@ module LeapFrog (
   disjunction,
 ) where
 
+import Data.Maybe
 import Data.List (sortBy)
 import Data.Ord (comparing)
 
@@ -60,9 +61,6 @@ fromOperationOnFirst o (first:rest) = do
 conjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
 conjunction frogs = fromOperationOnFirst Just frogs
 
-disjunction :: Ord a => [LeapFrog a] -> LeapFrog a
-disjunction = disjunctionFromOrderedList . sortBy (comparing current)
-
 disjunctionFromOrderedList :: Ord a => [LeapFrog a] -> LeapFrog a
 disjunctionFromOrderedList orderedList = let
     -- here we could have better error reporting for the emptyList
@@ -79,8 +77,12 @@ disjunctionFromOrderedList orderedList = let
       in fmap disjunctionFromOrderedList (work orderedList)
     definedNext = disjunctionBehindPredicate sameValue
     definedSeek value = disjunctionBehindPredicate (\f -> current f < value)
-    definedDown = Just $ disjunction (takeWhile sameValue orderedList)
+    definedDown = Just . disjunction . catMaybes . map down $
+                    takeWhile sameValue orderedList
   in LeapFrog currentValue definedNext definedSeek definedDown
+
+disjunction :: Ord a => [LeapFrog a] -> LeapFrog a
+disjunction = disjunctionFromOrderedList . sortBy (comparing current)
 
 -- TODO: is there a library for this?
 insertOrderedBy :: (a -> a -> Ordering) -> a -> [a] -> [a]

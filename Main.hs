@@ -43,8 +43,8 @@ frog2 = fromJust . toLeapFrog $ table2
 
 main :: IO ()
 main = do
-  --let out = Just (LeapFrog.disjunction [frog1, frog2])
-  let out = LeapFrog.conjunction [frog1, frog2]
+  let out = Just (LeapFrog.disjunction [frog1, frog2])
+  --let out = LeapFrog.conjunction [frog1, frog2]
   --let out = toLeapFrog table2
   let outTuples = LeapFrog.toTupleList 2 out
   putStrLn . unlines . (map prettyTuple) $ outTuples
