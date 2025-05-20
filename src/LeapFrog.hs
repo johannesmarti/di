@@ -61,27 +61,31 @@ fromOperationOnFirst o (first:rest) = do
 conjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
 conjunction frogs = fromOperationOnFirst Just frogs
 
-disjunctionFromOrderedList :: Ord a => [LeapFrog a] -> LeapFrog a
-disjunctionFromOrderedList orderedList = let
+disjunctionFromNonEmptyOrderedList :: Ord a => [LeapFrog a] -> LeapFrog a
+disjunctionFromNonEmptyOrderedList orderedList = let
     -- here we could have better error reporting for the emptyList
     currentValue = current . head $ orderedList
     sameValue f = current f == currentValue
-    disjunctionBehindPredicate predicate =  let
-        work [] = Nothing
+    disjunctionBehindPredicate predicate = let
+        work [] = []
         work (f:fs) = if predicate f
                         then let fs' = case next f of
                                          Nothing -> fs
                                          Just f' -> insertOrderedFrog f' fs
                                in work fs'
-                        else Just (f:fs)
-      in fmap disjunctionFromOrderedList (work orderedList)
+                        else f:fs
+      in disjunctionFromOrderedList (work orderedList)
     definedNext = disjunctionBehindPredicate sameValue
     definedSeek value = disjunctionBehindPredicate (\f -> current f < value)
-    definedDown = Just . disjunction . catMaybes . map down $
+    definedDown = disjunctionFromOrderedList . catMaybes . map down $
                     takeWhile sameValue orderedList
   in LeapFrog currentValue definedNext definedSeek definedDown
 
-disjunction :: Ord a => [LeapFrog a] -> LeapFrog a
+disjunctionFromOrderedList :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
+disjunctionFromOrderedList [] = Nothing
+disjunctionFromOrderedList fs = Just $ disjunctionFromNonEmptyOrderedList fs
+
+disjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
 disjunction = disjunctionFromOrderedList . sortBy (comparing current)
 
 -- TODO: is there a library for this?
