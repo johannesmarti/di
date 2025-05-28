@@ -1,4 +1,4 @@
-module TestTermGraph (spec) where
+module TermGraphTest (spec) where
 
 import Test.Hspec
 

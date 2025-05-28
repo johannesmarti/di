@@ -1,4 +1,4 @@
-module TestOptimizer (spec) where
+module OptimizerTest (spec) where
 
 import Test.Hspec
 

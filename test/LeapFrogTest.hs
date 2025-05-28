@@ -1,4 +1,4 @@
-module TestLeapFrog (spec) where
+module LeapFrogTest (spec) where
 
 import Test.Hspec
 
