@@ -80,6 +80,20 @@ table2c = fromTupleList type2
 table2Difficult = fromTupleList type2
             [[IntValue 2, IntValue 1]]
 
+table2aExistential1 = fromTupleList type1
+            [[IntValue 1],
+             [IntValue 2],
+             [IntValue 4]]
+
+table2aExistential0 = fromTupleList type1
+            [[IntValue 1],
+             [IntValue 2],
+             [IntValue 3],
+             [IntValue 5]]
+
+tableConExistential1 = fromTupleList type1
+            [[IntValue 1],
+             [IntValue 4]]
 
 
 frog1a = fromJust . toLeapFrog $ table1a
@@ -139,3 +153,21 @@ spec = do
                     fromJust (LeapFrog.conjunction [frog2a, frog2b])]
     it "disjunction with empty continuations" $
       out `shouldBe` table2Con
+
+  describe "existential" $ do
+    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                LeapFrog.existential 1 frog2a
+    it "table2a existential on 1" $
+      out `shouldBe` table2aExistential1
+
+    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                LeapFrog.existential 0 frog2a
+    it "table2a existential on 0" $
+      out `shouldBe` table2aExistential0
+
+    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                LeapFrog.existential 1 (fromJust (LeapFrog.conjunction
+                                                          [frog2a, frog2b]))
+    it "existential on conjunction of 2a and 2b" $
+      out `shouldBe` tableConExistential1
+

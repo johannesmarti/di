@@ -3,6 +3,7 @@ module LeapFrog (
   toTupleList,
   conjunction,
   disjunction,
+  existential,
 ) where
 
 import Data.Maybe
@@ -100,7 +101,19 @@ insertOrderedFrog = insertOrderedBy (comparing current)
 
 
 existential :: Ord a => Int -> LeapFrog a -> Maybe (LeapFrog a)
-existential position frog = undefined
+existential 0 frog = disjunction (catMaybes continuationList) where
+  valueList f = f : case next f of
+                      Nothing -> []
+                      Just f' -> valueList f'
+  continuationList = map down (valueList frog)
+existential position frog = let
+    definedNext = do nextFrog <- next frog
+                     existential position nextFrog
+    definedSeek value = do seekFrog <- seek frog value
+                           existential position seekFrog
+    definedDown = do downFrog <- down frog
+                     existential (position - 1) downFrog
+  in Just $ LeapFrog (current frog) definedNext definedSeek definedDown
 
 
 merge :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
