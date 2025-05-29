@@ -8,11 +8,16 @@ import Data.Value
 import Data.Table as Table
 import LeapFrog
 
+
+type0 = []
 type1 = [IntType]
 type2 = [IntType, IntType]
 
+tableEmpty0 = Table.empty type0
 tableEmpty1 = Table.empty type1
 tableEmpty2 = Table.empty type2
+
+tableFull0 = fromTupleList type0 [[]]
 
 table1a = fromTupleList type1
             [[IntValue 1],
@@ -96,6 +101,8 @@ tableConExistential1 = fromTupleList type1
              [IntValue 4]]
 
 
+frogFull0 = fromJust . toLeapFrog $ tableFull0
+
 frog1a = fromJust . toLeapFrog $ table1a
 frog1b = fromJust . toLeapFrog $ table1b
 
@@ -106,68 +113,82 @@ frog2c = fromJust . toLeapFrog $ table2c
 spec :: Spec
 spec = do
   describe "idempotence" $ do
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.conjunction [frog1a, frog1a]
-    it "conjunction frog1a" $
+    it "conjunction frog1a" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                  LeapFrog.conjunction [frog1a, frog1a]
       out `shouldBe` table1a
 
-    let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
-                LeapFrog.conjunction [frog2b, frog2b]
-    it "conjunction frog2b" $
+    it "conjunction frog2b" $ do
+      let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
+                  LeapFrog.conjunction [frog2b, frog2b]
       out `shouldBe` table2b
 
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.disjunction [frog1b, frog1b]
-    it "disjuction frog1b" $
+    it "disjuction frog1b" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                  LeapFrog.disjunction [frog1b, frog1b]
       out `shouldBe` table1b
 
-    let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
-                LeapFrog.disjunction [frog2a, frog2a]
-    it "disjuction frog2a" $
+    it "disjuction frog2a" $ do
+      let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
+                  LeapFrog.disjunction [frog2a, frog2a]
       out `shouldBe` table2a
 
   describe "prepared conjunctions" $ do
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.conjunction [frog1a, frog1b]
-    it "table1Con" $
+    it "table1Con" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                  LeapFrog.conjunction [frog1a, frog1b]
       out `shouldBe` table1Con
 
-    let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
-                LeapFrog.conjunction [frog2a, frog2b]
-    it "table2Con" $
+    it "table2Con" $ do
+      let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
+                  LeapFrog.conjunction [frog2a, frog2b]
       out `shouldBe` table2Con
 
   describe "prepared disjunctions" $ do
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.disjunction [frog1a, frog1b]
-    it "table1Dis" $
+    it "table1Dis" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                  LeapFrog.disjunction [frog1a, frog1b]
       out `shouldBe` table1Dis
 
-    let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
-                LeapFrog.disjunction [frog2a, frog2b]
-    it "table2Dis" $
+    it "table2Dis" $ do
+      let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
+                  LeapFrog.disjunction [frog2a, frog2b]
       out `shouldBe` table2Dis
 
-    let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
-                LeapFrog.disjunction [frog2c,
-                    fromJust (LeapFrog.conjunction [frog2a, frog2b])]
-    it "disjunction with empty continuations" $
+    it "disjunction with empty continuations" $ do
+      let out = Table.fromTupleList type2 $ LeapFrog.toTupleList 2 $
+                  LeapFrog.disjunction [frog2c,
+                      fromJust (LeapFrog.conjunction [frog2a, frog2b])]
       out `shouldBe` table2Con
 
   describe "existential" $ do
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.existential 1 frog2a
-    it "table2a existential on 1" $
+    it "table2a existential on 1" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                  LeapFrog.existential 1 frog2a
       out `shouldBe` table2aExistential1
 
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.existential 0 frog2a
-    it "table2a existential on 0" $
+    it "table2a existential on 0" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                  LeapFrog.existential 0 frog2a
       out `shouldBe` table2aExistential0
 
-    let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
-                LeapFrog.existential 1 (fromJust (LeapFrog.conjunction
-                                                          [frog2a, frog2b]))
-    it "existential on conjunction of 2a and 2b" $
+    it "existential on conjunction of 2a and 2b" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList 1 $
+                  LeapFrog.existential 1 (fromJust (LeapFrog.conjunction
+                                                            [frog2a, frog2b]))
       out `shouldBe` tableConExistential1
+
+  describe "length 0 frogs" $ do
+    let top = Just (error "sucking on top")
+    let bot = Nothing
+    it "1 and 1 == 1" $ do
+      let out = Table.fromTupleList type0 $ LeapFrog.toTupleList 0 $
+                  LeapFrog.conjunction [frogFull0, frogFull0] 
+      out `shouldBe` tableFull0
+    it "1 or 1 == 1" $ do
+      let out = Table.fromTupleList type0 $ LeapFrog.toTupleList 0 $
+                  LeapFrog.disjunction [frogFull0, frogFull0] 
+      out `shouldBe` tableFull0
+      
+
 

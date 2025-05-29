@@ -19,8 +19,8 @@ data LeapFrog a = LeapFrog {
 
 -- Maybe it would be better to make this tail recursive
 toTupleList :: Int -> Maybe (LeapFrog a) -> [[a]]
-toTupleList 0 _ = [[]]
 toTupleList _ Nothing = []
+toTupleList 0 _ = [[]]
 toTupleList n (Just frog) = let
     first = current frog
     firstTail = toTupleList (n - 1) (down frog)

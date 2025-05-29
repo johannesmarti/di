@@ -41,10 +41,13 @@ table2 = fromTupleList [IntType]
 frog1 = fromJust . toLeapFrog $ table1
 frog2 = fromJust . toLeapFrog $ table2
 
+operate :: Maybe Int
+operate = do
+  value <- Just (error "you suck")
+  return value 
+
 main :: IO ()
 main = do
-  let out = Just (LeapFrog.disjunction [frog1, frog2])
-  --let out = LeapFrog.conjunction [frog1, frog2]
-  --let out = toLeapFrog table2
-  let outTuples = LeapFrog.toTupleList 2 out
-  putStrLn . unlines . (map prettyTuple) $ outTuples
+  putStrLn $ case operate of
+               Nothing -> "lol nothing"
+               Just _ ->  "cool it works"

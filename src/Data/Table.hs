@@ -148,13 +148,13 @@ nonEmptyToLeapFrog :: NonEmptyTable -> LeapFrog Value
 nonEmptyToLeapFrog table = let
     minKey = fst . Map.findMin
     current = case table of
-           End -> error "trying to leapfrog on a table holding the empty tuple"
+           End -> error "trying to get current value from a table holding the empty tuple"
            Layer (IntMap    m) -> IntValue    (minKey m)
            Layer (StringMap m) -> StringValue (minKey m)
            Layer (FloatMap  m) -> FloatValue  (minKey m)
     lfFromTMap = nonEmptyToLeapFrog . Layer
     next = case table of
-           End -> error "trying to leapfrog on a table holding the empty tuple"
+           End -> error "trying to next on a table holding the empty tuple"
            Layer (IntMap    m) -> fmap (lfFromTMap . IntMap   ) $ nextOnMap m
            Layer (StringMap m) -> fmap (lfFromTMap . StringMap) $ nextOnMap m
            Layer (FloatMap  m) -> fmap (lfFromTMap . FloatMap ) $ nextOnMap m
