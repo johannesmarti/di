@@ -1,40 +1,76 @@
 module LeapFrog (
+  FrogOrEnd(..),
   LeapFrog(..),
+  maybeFrogOrEndToTupleList,
+  forceFrog,
   toTupleList,
   conjunction,
   disjunction,
   existential,
 ) where
 
+import Data.Filtrable (mapEither)
 import Data.Maybe
 import Data.List (sortBy)
 import Data.Ord (comparing)
+import Control.Exception (assert)
 
 data LeapFrog a = LeapFrog {
   current :: a,
   next :: Maybe (LeapFrog a),
   seek :: a -> Maybe (LeapFrog a),
-  down :: Maybe (LeapFrog a)
+  down :: Maybe (FrogOrEnd a)
+  -- Nothing signals that the current context can not be extended to a
+  -- tuple and should be discarted.
 }
 
+data FrogOrEnd a = End | Frog (LeapFrog a)
+
+forceFrog :: String -> FrogOrEnd a -> LeapFrog a
+forceFrog operationName End = error ("unexpected end in " ++ operationName)
+forceFrog operationName (Frog f) = f
+
+pushPastEnd :: [FrogOrEnd a] -> Maybe [LeapFrog a]
+pushPastEnd endOrFrogs = let
+    f End = Left ()
+    f (Frog frog) = Right frog
+    (ends,frogs) = mapEither f endOrFrogs
+  in if null ends
+       then Just frogs
+       else assert (null frogs) $ Nothing
+
 -- Maybe it would be better to make this tail recursive
-toTupleList :: Int -> Maybe (LeapFrog a) -> [[a]]
-toTupleList _ Nothing = []
-toTupleList 0 _ = [[]]
-toTupleList n (Just frog) = let
+maybeFrogOrEndToTupleList :: Maybe (FrogOrEnd a) -> [[a]]
+maybeFrogOrEndToTupleList Nothing = []
+maybeFrogOrEndToTupleList (Just End) = [[]]
+maybeFrogOrEndToTupleList (Just (Frog frog)) = let
     first = current frog
-    firstTail = toTupleList (n - 1) (down frog)
+    firstTail = maybeFrogOrEndToTupleList (down frog)
     firsts = map (first:) firstTail
-    rest = toTupleList n (next frog)
+    rest = maybeFrogToTupleList (next frog)
   in firsts ++ rest
+
+maybeFrogToTupleList :: Maybe (LeapFrog a) -> [[a]]
+maybeFrogToTupleList Nothing = []
+maybeFrogToTupleList (Just frog) = let
+    first = current frog
+    firstTail = maybeFrogOrEndToTupleList (down frog)
+    firsts = map (first:) firstTail
+    rest = maybeFrogToTupleList (next frog)
+  in firsts ++ rest
+
+toTupleList :: Maybe (LeapFrog a) -> [[a]]
+toTupleList = maybeFrogToTupleList
 
 conjunctionFromStableList :: Ord a => [LeapFrog a] -> LeapFrog a
 conjunctionFromStableList frogs = let
     currentValue = current . head $ frogs
     definedNext = fromOperationOnFirst next frogs
     definedSeek value = fromOperationOnFirst (\f -> seek f value) frogs
-    definedDown = do dFrogs <- traverse down frogs
-                     conjunction dFrogs
+    definedDown = do dEndOrFrogs <- traverse down frogs
+                     case pushPastEnd dEndOrFrogs of
+                        Nothing -> Just End
+                        Just dFrogs -> fmap Frog (conjunction dFrogs)
   in LeapFrog currentValue definedNext definedSeek definedDown
 
 stabilizeWorker :: Ord a => a -> [LeapFrog a] -> [LeapFrog a]
@@ -62,6 +98,13 @@ fromOperationOnFirst o (first:rest) = do
 conjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
 conjunction frogs = fromOperationOnFirst Just frogs
 
+disjunctionDown :: Ord a => [LeapFrog a] -> Maybe (FrogOrEnd a)
+disjunctionDown upperFrogs = let
+    downFrogsOrEnd = catMaybes . map down $ upperFrogs
+  in case pushPastEnd downFrogsOrEnd of
+       Nothing -> Just End
+       Just dFrogs -> fmap Frog (disjunction dFrogs)
+
 disjunctionFromNonEmptyOrderedList :: Ord a => [LeapFrog a] -> LeapFrog a
 disjunctionFromNonEmptyOrderedList orderedList = let
     -- here we could have better error reporting for the emptyList
@@ -78,8 +121,7 @@ disjunctionFromNonEmptyOrderedList orderedList = let
       in disjunctionFromOrderedList (work orderedList)
     definedNext = disjunctionBehindPredicate sameValue
     definedSeek value = disjunctionBehindPredicate (\f -> current f < value)
-    definedDown = disjunctionFromOrderedList . catMaybes . map down $
-                    takeWhile sameValue orderedList
+    definedDown = disjunctionDown (takeWhile sameValue orderedList)
   in LeapFrog currentValue definedNext definedSeek definedDown
 
 disjunctionFromOrderedList :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
@@ -88,6 +130,7 @@ disjunctionFromOrderedList fs = Just $ disjunctionFromNonEmptyOrderedList fs
 
 disjunction :: Ord a => [LeapFrog a] -> Maybe (LeapFrog a)
 disjunction = disjunctionFromOrderedList . sortBy (comparing current)
+
 
 -- TODO: is there a library for this?
 insertOrderedBy :: (a -> a -> Ordering) -> a -> [a] -> [a]
@@ -99,21 +142,23 @@ insertOrderedBy cmp value (a:as) = if a `cmp` value == LT
 insertOrderedFrog :: Ord a => LeapFrog a -> [LeapFrog a] -> [LeapFrog a]
 insertOrderedFrog = insertOrderedBy (comparing current)
 
-
-existential :: Ord a => Int -> LeapFrog a -> Maybe (LeapFrog a)
-existential 0 frog = disjunction (catMaybes continuationList) where
+existential :: Ord a => Int -> LeapFrog a -> Maybe (FrogOrEnd a)
+existential 0 frog = disjunctionDown (valueList frog) where
   valueList f = f : case next f of
                       Nothing -> []
                       Just f' -> valueList f'
-  continuationList = map down (valueList frog)
 existential position frog = let
     definedNext = do nextFrog <- next frog
-                     existential position nextFrog
+                     fmap (forceFrog "existenial next")
+                       $ existential position nextFrog
     definedSeek value = do seekFrog <- seek frog value
-                           existential position seekFrog
-    definedDown = do downFrog <- down frog
-                     existential (position - 1) downFrog
-  in Just $ LeapFrog (current frog) definedNext definedSeek definedDown
+                           fmap (forceFrog "existential seek") $
+                             existential position seekFrog
+    definedDown = do downFrogOrEnd <- down frog
+                     case downFrogOrEnd of
+                       End -> error "hit end in existential before reaching quantified variable"
+                       Frog downFrog -> existential (position - 1) downFrog
+  in Just . Frog $ LeapFrog (current frog) definedNext definedSeek definedDown
 
 
 merge :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)

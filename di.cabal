@@ -74,6 +74,7 @@ library
     build-depends: base ^>=4.17.2.1,
                    containers,
                    mtl,
+                   filtrable,
 
     -- Base language which the package is written in.
     default-language: Haskell2010
@@ -94,7 +95,6 @@ executable di
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.17.2.1,
-                      containers,
                       di
 
     -- Base language which the package is written in.
@@ -110,7 +110,6 @@ test-suite di-test
     other-modules:    OptimizerTest, TermGraphTest, LeapFrogTest
     build-depends:    base ^>=4.17.2.1,
                       containers,
-                      mtl,
                       di,
                       hspec ^>=2.10
     default-language: Haskell2010

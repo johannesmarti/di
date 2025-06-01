@@ -18,7 +18,11 @@ import Control.Exception (assert)
 import qualified Data.Map.Strict as Map
 
 import Data.Value
-import LeapFrog hiding (toTupleList)
+import LeapFrog hiding (End, toTupleList)
+import qualified LeapFrog as LF
+
+-- TODO: should have a function that populates a table directely from a leap frog
+-- TODO: it might be better to have the LeapFrog related code in the LeapFrog module and not this Table Module
 
 data TypedMap x = IntMap (Map.Map Int x)
                 | StringMap (Map.Map String x)
@@ -144,31 +148,30 @@ seekTypeWorker (StringValue v) (StringMap m) = fmap StringMap (seekOnMap v m)
 seekTypeWorker (FloatValue v) (FloatMap m) = fmap FloatMap (seekOnMap v m)
 seekTypeWorker _ _ = error "seek: type mismatch"
 
-nonEmptyToLeapFrog :: NonEmptyTable -> LeapFrog Value
-nonEmptyToLeapFrog table = let
+typedMapToLeapFrog :: TypedMap NonEmptyTable -> LeapFrog Value
+typedMapToLeapFrog typedMap = let
     minKey = fst . Map.findMin
-    current = case table of
-           End -> error "trying to get current value from a table holding the empty tuple"
-           Layer (IntMap    m) -> IntValue    (minKey m)
-           Layer (StringMap m) -> StringValue (minKey m)
-           Layer (FloatMap  m) -> FloatValue  (minKey m)
+    definedCurrent = case typedMap of
+                       IntMap    m -> IntValue    (minKey m)
+                       StringMap m -> StringValue (minKey m)
+                       FloatMap  m -> FloatValue  (minKey m)
     lfFromTMap = nonEmptyToLeapFrog . Layer
-    next = case table of
-           End -> error "trying to next on a table holding the empty tuple"
-           Layer (IntMap    m) -> fmap (lfFromTMap . IntMap   ) $ nextOnMap m
-           Layer (StringMap m) -> fmap (lfFromTMap . StringMap) $ nextOnMap m
-           Layer (FloatMap  m) -> fmap (lfFromTMap . FloatMap ) $ nextOnMap m
-    seek value = case table of
-           End -> error "trying to seek on a table holding the empty tuple"
-           Layer tm -> fmap lfFromTMap $ seekTypeWorker value tm
+    definedNext = case typedMap of
+           IntMap    m -> fmap (typedMapToLeapFrog . IntMap   ) $ nextOnMap m
+           StringMap m -> fmap (typedMapToLeapFrog . StringMap) $ nextOnMap m
+           FloatMap  m -> fmap (typedMapToLeapFrog . FloatMap ) $ nextOnMap m
+    definedSeek value = fmap typedMapToLeapFrog (seekTypeWorker value typedMap)
     downOnMap = Just . nonEmptyToLeapFrog . snd . Map.findMin
-    down = case table of
-           End -> error "trying to move down past end of table"
-           Layer (IntMap    m) -> downOnMap m
-           Layer (StringMap m) -> downOnMap m
-           Layer (FloatMap m) -> downOnMap m
-  in LeapFrog current next seek down
+    definedDown = case typedMap of
+                    IntMap    m -> downOnMap m
+                    StringMap m -> downOnMap m
+                    FloatMap  m -> downOnMap m
+  in LeapFrog definedCurrent definedNext definedSeek definedDown
 
-toLeapFrog :: Table -> Maybe (LeapFrog Value)
+nonEmptyToLeapFrog :: NonEmptyTable -> FrogOrEnd Value
+nonEmptyToLeapFrog End = LF.End
+nonEmptyToLeapFrog (Layer typedMap) = Frog (typedMapToLeapFrog typedMap)
+
+toLeapFrog :: Table -> Maybe (FrogOrEnd Value)
 toLeapFrog (Empty _) = Nothing
 toLeapFrog (NonEmpty t) = Just (nonEmptyToLeapFrog t)
