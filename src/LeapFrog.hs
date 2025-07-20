@@ -7,6 +7,7 @@ module LeapFrog (
   conjunction,
   disjunction,
   existential,
+  existentialOnLast,
 ) where
 
 import Data.Filtrable (mapEither)
@@ -142,6 +143,7 @@ insertOrderedBy cmp value (a:as) = if a `cmp` value == LT
 insertOrderedFrog :: Ord a => LeapFrog a -> [LeapFrog a] -> [LeapFrog a]
 insertOrderedFrog = insertOrderedBy (comparing current)
 
+-- TODO: should also implement and existential that operates on the last variable
 existential :: Ord a => Int -> LeapFrog a -> Maybe (FrogOrEnd a)
 existential 0 frog = disjunctionDown (valueList frog) where
   valueList f = f : case next f of
@@ -160,6 +162,27 @@ existential position frog = let
                        Frog downFrog -> existential (position - 1) downFrog
   in Just . Frog $ LeapFrog (current frog) definedNext definedSeek definedDown
 
+isAtLastPosition :: LeapFrog a -> Bool
+isAtLastPosition frog = case down frog of
+                          Nothing         -> True
+                          (Just End)      -> True
+                          (Just (Frog _)) -> False
+
+existentialOnLast :: Ord a => Int -> LeapFrog a -> Maybe (FrogOrEnd a)
+existentialOnLast 0 frog = assert (isAtLastPosition frog) $ Just End
+existentialOnLast indexOfLastPosition frog = let
+    definedNext = do nextFrog <- next frog
+                     fmap (forceFrog "existenial next")
+                       $ existentialOnLast indexOfLastPosition nextFrog
+    definedSeek value = do seekFrog <- seek frog value
+                           fmap (forceFrog "existential seek") $
+                             existentialOnLast indexOfLastPosition seekFrog
+    definedDown = do downFrogOrEnd <- down frog
+                     case downFrogOrEnd of
+                       End -> error "hit end in existential before reaching quantified variable"
+                       Frog downFrog -> existentialOnLast
+                                          (indexOfLastPosition - 1) downFrog
+  in Just . Frog $ LeapFrog (current frog) definedNext definedSeek definedDown
 
 merge :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
 merge mergeFrom mergeTo frog = undefined

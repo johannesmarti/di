@@ -177,3 +177,15 @@ spec = do
                   LeapFrog.existential 1 (fromJust (LeapFrog.conjunction
                                                             [frog2a, frog2b]))
       out `shouldBe` tableConExistential1
+
+  describe "existentialOnLast" $ do
+    it "table2a existential on 1" $ do
+      let out = Table.fromTupleList type1 $ maybeFrogOrEndToTupleList $
+                  LeapFrog.existentialOnLast 1 frog2a
+      out `shouldBe` table2aExistential1
+
+    it "existential on conjunction of 2a and 2b" $ do
+      let out = Table.fromTupleList type1 $ maybeFrogOrEndToTupleList $
+                  LeapFrog.existentialOnLast 1 (fromJust (LeapFrog.conjunction
+                                                            [frog2a, frog2b]))
+      out `shouldBe` tableConExistential1
