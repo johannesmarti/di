@@ -18,7 +18,7 @@ import Control.Exception (assert)
 import qualified Data.Map.Strict as Map
 
 import Data.Value
-import LeapFrog hiding (End, toTupleList)
+import LeapFrog hiding (End, toTupleList, merge)
 import qualified LeapFrog as LF
 
 -- TODO: should have a function that populates a table directely from a leap frog

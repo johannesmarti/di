@@ -2,12 +2,14 @@ module LeapFrog (
   FrogOrEnd(..),
   LeapFrog(..),
   maybeFrogOrEndToTupleList,
+  frogToTupleList,
   forceFrog,
   toTupleList,
   conjunction,
   disjunction,
   existential,
   existentialOnLast,
+  merge,
 ) where
 
 import Data.Filtrable (mapEither)
@@ -62,6 +64,9 @@ maybeFrogToTupleList (Just frog) = let
 
 toTupleList :: Maybe (LeapFrog a) -> [[a]]
 toTupleList = maybeFrogToTupleList
+
+frogToTupleList :: LeapFrog a -> [[a]]
+frogToTupleList = toTupleList . Just
 
 conjunctionFromStableList :: Ord a => [LeapFrog a] -> LeapFrog a
 conjunctionFromStableList frogs = let
@@ -186,34 +191,7 @@ existentialOnLast indexOfLastPosition frog = let
 
 merge :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
 merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) result where
-  result = findMergeTo mergeTo mergeFrom frog
-  findMergeTo 0 mergeFrom frog = findMergeFrom (current frog) mergeFrom frog
-  findMergeTo mergeTo mergeFrom frog = let
-      recOnLevel = findMergeTo mergeTo mergeFrom
-      definedNext = fmap recOnLevel (next frog)
-      definedSeek value = fmap recOnLevel (seek frog value)
-      definedDown = do downFrogOrEnd <- down frog
-                       case downFrogOrEnd of
-                         End -> error "hit end in merge before reaching merge to variable"
-                         Frog downFrog -> Just . Frog $
-                           findMergeTo (mergeTo - 1) (mergeFrom - 1) downFrog
-    in LeapFrog (current frog) definedNext definedSeek definedDown
-  findMergeFrom fixedValue 0 frog = let
-      definedSeek value = assert (fixedValue < value) Nothing
-      definedDown = Just . Frog $ frog
-    in LeapFrog fixedValue (const Nothing) definedSeek definedDown
-  findMergeFrom fixedValue mergeFrom frog = let
-      recOnLevel = findMergeFromg fixedValue mergeFrom
-      definedNext = fmap recOnLevel (next frog)
-      definedSeek value = fmap recOnLevel (seek frog value)
-      definedDown = do downFrogOrEnd <- down frog
-                       case downFrogOrEnd of
-                         End -> error "hit end in merge before reaching merge to variable"
-                         Frog downFrog -> Just . Frog $
-                           findMergeFrom fixedValue (mergeFrom - 1) downFrog
-    in LeapFrog (current frog) definedNext definedSeek definedDown
-
-
+  result = undefined
 
 split :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
 split splitFrom splitTo frog = undefined

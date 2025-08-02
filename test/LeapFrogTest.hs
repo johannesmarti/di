@@ -100,6 +100,33 @@ tableConExistential1 = fromTupleList type1
             [[IntValue 1],
              [IntValue 4]]
 
+table1ConMerge = fromTupleList type2
+            [[IntValue 3, IntValue 3],
+             [IntValue 8, IntValue 8]]
+
+table2aMerge01 = fromTupleList type2
+            [[IntValue 1, IntValue 1, IntValue 1],
+             [IntValue 1, IntValue 1, IntValue 3],
+             [IntValue 2, IntValue 2, IntValue 1],
+             [IntValue 4, IntValue 4, IntValue 2],
+             [IntValue 4, IntValue 4, IntValue 3],
+             [IntValue 4, IntValue 4, IntValue 5]]
+
+table2aMerge02 = fromTupleList type2
+            [[IntValue 1, IntValue 1, IntValue 1],
+             [IntValue 1, IntValue 3, IntValue 1],
+             [IntValue 2, IntValue 1, IntValue 2],
+             [IntValue 4, IntValue 2, IntValue 4],
+             [IntValue 4, IntValue 3, IntValue 4],
+             [IntValue 4, IntValue 5, IntValue 4]]
+
+table2aMerge12 = fromTupleList type2
+            [[IntValue 1, IntValue 1, IntValue 1],
+             [IntValue 1, IntValue 3, IntValue 3],
+             [IntValue 2, IntValue 1, IntValue 1],
+             [IntValue 4, IntValue 2, IntValue 2],
+             [IntValue 4, IntValue 3, IntValue 3],
+             [IntValue 4, IntValue 5, IntValue 5]]
 
 tableToFrog = forceFrog "testdata frog" . fromJust . toLeapFrog
 
@@ -189,3 +216,37 @@ spec = do
                   LeapFrog.existentialOnLast 1 (fromJust (LeapFrog.conjunction
                                                             [frog2a, frog2b]))
       out `shouldBe` tableConExistential1
+
+  describe "existentialOnLast" $ do
+    it "table2a existential on 1" $ do
+      let out = Table.fromTupleList type1 $ maybeFrogOrEndToTupleList $
+                  LeapFrog.existentialOnLast 1 frog2a
+      out `shouldBe` table2aExistential1
+
+    it "existential on conjunction of 2a and 2b" $ do
+      let out = Table.fromTupleList type1 $ maybeFrogOrEndToTupleList $
+                  LeapFrog.existentialOnLast 1 (fromJust (LeapFrog.conjunction
+                                                            [frog2a, frog2b]))
+      out `shouldBe` tableConExistential1
+
+  describe "merge" $ do
+    it "merge over conjunction a and b" $ do
+      let con = fromJust (LeapFrog.conjunction [frog1a, frog1b])
+      let out = Table.fromTupleList type2 $ frogToTupleList $
+                  LeapFrog.merge 0 1 con
+      out `shouldBe` table1ConMerge
+
+    it "merge over table2a 0 1" $ do
+      let out = Table.fromTupleList type2 $ frogToTupleList $
+                  LeapFrog.merge 0 1 frog2a
+      out `shouldBe` table2aMerge01
+
+    it "merge over table2a 0 2" $ do
+      let out = Table.fromTupleList type2 $ frogToTupleList $
+                  LeapFrog.merge 0 1 frog2a
+      out `shouldBe` table2aMerge02
+
+    it "merge over table2a 1 2" $ do
+      let out = Table.fromTupleList type2 $ frogToTupleList $
+                  LeapFrog.merge 1 2 frog2a
+      out `shouldBe` table2aMerge12
