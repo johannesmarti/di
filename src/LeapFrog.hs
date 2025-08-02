@@ -19,10 +19,10 @@ import Control.Exception (assert)
 data LeapFrog a = LeapFrog {
   current :: a,
   next :: Maybe (LeapFrog a),
+  -- I am assuing that the value that we are seeking for is always
+  -- bigger than the current value. Is this sane?
   seek :: a -> Maybe (LeapFrog a),
   down :: Maybe (FrogOrEnd a)
-  -- Nothing signals that the current context can not be extended to a
-  -- tuple and should be discarted.
 }
 
 data FrogOrEnd a = End | Frog (LeapFrog a)
@@ -184,8 +184,36 @@ existentialOnLast indexOfLastPosition frog = let
                                           (indexOfLastPosition - 1) downFrog
   in Just . Frog $ LeapFrog (current frog) definedNext definedSeek definedDown
 
-merge :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
-merge mergeFrom mergeTo frog = undefined
+merge :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
+merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) result where
+  result = findMergeTo mergeTo mergeFrom frog
+  findMergeTo 0 mergeFrom frog = findMergeFrom (current frog) mergeFrom frog
+  findMergeTo mergeTo mergeFrom frog = let
+      recOnLevel = findMergeTo mergeTo mergeFrom
+      definedNext = fmap recOnLevel (next frog)
+      definedSeek value = fmap recOnLevel (seek frog value)
+      definedDown = do downFrogOrEnd <- down frog
+                       case downFrogOrEnd of
+                         End -> error "hit end in merge before reaching merge to variable"
+                         Frog downFrog -> Just . Frog $
+                           findMergeTo (mergeTo - 1) (mergeFrom - 1) downFrog
+    in LeapFrog (current frog) definedNext definedSeek definedDown
+  findMergeFrom fixedValue 0 frog = let
+      definedSeek value = assert (fixedValue < value) Nothing
+      definedDown = Just . Frog $ frog
+    in LeapFrog fixedValue (const Nothing) definedSeek definedDown
+  findMergeFrom fixedValue mergeFrom frog = let
+      recOnLevel = findMergeFromg fixedValue mergeFrom
+      definedNext = fmap recOnLevel (next frog)
+      definedSeek value = fmap recOnLevel (seek frog value)
+      definedDown = do downFrogOrEnd <- down frog
+                       case downFrogOrEnd of
+                         End -> error "hit end in merge before reaching merge to variable"
+                         Frog downFrog -> Just . Frog $
+                           findMergeFrom fixedValue (mergeFrom - 1) downFrog
+    in LeapFrog (current frog) definedNext definedSeek definedDown
+
+
 
 split :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
 split splitFrom splitTo frog = undefined
