@@ -12,6 +12,7 @@ import LeapFrog
 type0 = []
 type1 = [IntType]
 type2 = [IntType, IntType]
+type3 = [IntType, IntType, IntType]
 
 tableEmpty0 = Table.empty type0
 tableEmpty1 = Table.empty type1
@@ -104,7 +105,7 @@ table1ConMerge = fromTupleList type2
             [[IntValue 3, IntValue 3],
              [IntValue 8, IntValue 8]]
 
-table2aMerge01 = fromTupleList type2
+table2aMerge01 = fromTupleList type3
             [[IntValue 1, IntValue 1, IntValue 1],
              [IntValue 1, IntValue 1, IntValue 3],
              [IntValue 2, IntValue 2, IntValue 1],
@@ -112,7 +113,7 @@ table2aMerge01 = fromTupleList type2
              [IntValue 4, IntValue 4, IntValue 3],
              [IntValue 4, IntValue 4, IntValue 5]]
 
-table2aMerge02 = fromTupleList type2
+table2aMerge02 = fromTupleList type3
             [[IntValue 1, IntValue 1, IntValue 1],
              [IntValue 1, IntValue 3, IntValue 1],
              [IntValue 2, IntValue 1, IntValue 2],
@@ -120,7 +121,7 @@ table2aMerge02 = fromTupleList type2
              [IntValue 4, IntValue 3, IntValue 4],
              [IntValue 4, IntValue 5, IntValue 4]]
 
-table2aMerge12 = fromTupleList type2
+table2aMerge12 = fromTupleList type3
             [[IntValue 1, IntValue 1, IntValue 1],
              [IntValue 1, IntValue 3, IntValue 3],
              [IntValue 2, IntValue 1, IntValue 1],
@@ -237,16 +238,16 @@ spec = do
       out `shouldBe` table1ConMerge
 
     it "merge over table2a 0 1" $ do
-      let out = Table.fromTupleList type2 $ frogToTupleList $
+      let out = Table.fromTupleList type3 $ frogToTupleList $
                   LeapFrog.merge 0 1 frog2a
       out `shouldBe` table2aMerge01
 
     it "merge over table2a 0 2" $ do
-      let out = Table.fromTupleList type2 $ frogToTupleList $
-                  LeapFrog.merge 0 1 frog2a
+      let out = Table.fromTupleList type3 $ frogToTupleList $
+                  LeapFrog.merge 0 2 frog2a
       out `shouldBe` table2aMerge02
 
     it "merge over table2a 1 2" $ do
-      let out = Table.fromTupleList type2 $ frogToTupleList $
+      let out = Table.fromTupleList type3 $ frogToTupleList $
                   LeapFrog.merge 1 2 frog2a
       out `shouldBe` table2aMerge12

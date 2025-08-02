@@ -190,9 +190,35 @@ existentialOnLast indexOfLastPosition frog = let
   in Just . Frog $ LeapFrog (current frog) definedNext definedSeek definedDown
 
 merge :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
-merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) result where
-  result = undefined
-
-split :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
-split splitFrom splitTo frog = undefined
-
+merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) $ mergeHelper 0 frog where
+  mergeHelper depth f
+    | depth == mergeFrom - 1 = 
+        -- At position mergeFrom-1, insert a duplicate of position mergeTo
+        let val = current f
+            newNext = fmap (mergeHelper depth) (next f)
+            newSeek v = fmap (mergeHelper depth) (seek f v)
+            -- We need to extract the value from position mergeTo
+            valueAtMergeTo = extractValueAt mergeTo f
+            -- Create a duplicate level
+            dupNext = Nothing
+            dupDown = down f  -- Continue with the original down
+            dup = LeapFrog valueAtMergeTo dupNext dupSeek dupDown
+            dupSeek v = if v <= valueAtMergeTo then Just dup else Nothing
+            newDown = Just $ Frog dup
+        in LeapFrog val newNext newSeek newDown
+    | depth < mergeFrom = 
+        -- Continue recursing
+        let newNext = fmap (mergeHelper depth) (next f)
+            newSeek v = fmap (mergeHelper depth) (seek f v)
+            newDown = case down f of
+                        Nothing -> Nothing
+                        Just End -> Just End
+                        Just (Frog df) -> Just $ Frog $ mergeHelper (depth + 1) df
+        in LeapFrog (current f) newNext newSeek newDown
+    | otherwise = f
+  
+  -- Extract value at a specific depth (counting from current position)
+  extractValueAt 0 f = current f
+  extractValueAt n f = case down f of
+    Just (Frog df) -> current df  -- For merge, we want the value at that level
+    _ -> error "extractValueAt: can't find value"
