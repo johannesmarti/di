@@ -189,36 +189,44 @@ existentialOnLast indexOfLastPosition frog = let
                                           (indexOfLastPosition - 1) downFrog
   in Just . Frog $ LeapFrog (current frog) definedNext definedSeek definedDown
 
+duplicateAtMergeFrom :: Ord a => a -> Int -> FrogOrEnd a -> LeapFrog a
+duplicateAtMergeFrom fixedValue 0 continuation = duplicationFrog where
+  definedNext = Nothing
+  definedSeek value = if value <= fixedValue then Just duplicationFrog
+                                             else Nothing
+  definedDown = Just continuation
+  duplicationFrog = LeapFrog fixedValue definedNext definedSeek definedDown
+duplicateAtMergeFrom fixedValue mergeFrom End =
+  error "hit end in merge before reaching merge to variable"
+duplicateAtMergeFrom fixedValue mergeFrom (Frog f) = worker f where
+  worker frog = let 
+      definedNext = fmap worker (next frog)
+      definedSeek value = fmap worker (seek frog value)
+      definedDown = case down frog of
+                      Nothing -> Nothing
+                      Just continuation -> Just . Frog $
+                            duplicateAtMergeFrom fixedValue (mergeFrom - 1)                                                      continuation
+    in LeapFrog (current frog) definedNext definedSeek definedDown
+
+findMergeTo :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
+findMergeTo mergeTo mergeFrom frog = let
+    recurseOnSameLevel = findMergeTo mergeTo mergeFrom
+    definedNext = fmap recurseOnSameLevel (next frog)
+    definedSeek value = fmap recurseOnSameLevel (seek frog value)
+    operate continuation = Frog $
+            if mergeTo == 0
+              then duplicateAtMergeFrom (current frog) (mergeFrom - 1) continuation
+              else case continuation of
+                     End -> error "hit end in merge before reaching merge to variable"
+                     (Frog downFrog) ->
+                           findMergeTo (mergeTo - 1) (mergeFrom - 1) downFrog
+    definedDown = fmap operate (down frog)
+  in LeapFrog (current frog) definedNext definedSeek definedDown
+
 merge :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
-merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) $ mergeHelper 0 frog where
-  mergeHelper depth f
-    | depth == mergeFrom - 1 = 
-        -- At position mergeFrom-1, insert a duplicate of position mergeTo
-        let val = current f
-            newNext = fmap (mergeHelper depth) (next f)
-            newSeek v = fmap (mergeHelper depth) (seek f v)
-            -- We need to extract the value from position mergeTo
-            valueAtMergeTo = extractValueAt mergeTo f
-            -- Create a duplicate level
-            dupNext = Nothing
-            dupDown = down f  -- Continue with the original down
-            dup = LeapFrog valueAtMergeTo dupNext dupSeek dupDown
-            dupSeek v = if v <= valueAtMergeTo then Just dup else Nothing
-            newDown = Just $ Frog dup
-        in LeapFrog val newNext newSeek newDown
-    | depth < mergeFrom = 
-        -- Continue recursing
-        let newNext = fmap (mergeHelper depth) (next f)
-            newSeek v = fmap (mergeHelper depth) (seek f v)
-            newDown = case down f of
-                        Nothing -> Nothing
-                        Just End -> Just End
-                        Just (Frog df) -> Just $ Frog $ mergeHelper (depth + 1) df
-        in LeapFrog (current f) newNext newSeek newDown
-    | otherwise = f
-  
-  -- Extract value at a specific depth (counting from current position)
-  extractValueAt 0 f = current f
-  extractValueAt n f = case down f of
-    Just (Frog df) -> current df  -- For merge, we want the value at that level
-    _ -> error "extractValueAt: can't find value"
+merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) $
+  findMergeTo mergeTo mergeFrom frog
+
+split :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
+split splitFrom splitTo frog = undefined
+
