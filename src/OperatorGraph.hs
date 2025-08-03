@@ -28,9 +28,8 @@ module OperatorGraph (
 import Control.Exception (assert)
 
 import Data.Foldable (fold)
-import Data.List (nub, intercalate)
+import Data.List (intercalate)
 import Data.Map.Strict as Map
-import Data.Maybe
 import Data.Set as Set
 
 import Atom hiding (Atom)

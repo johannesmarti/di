@@ -10,6 +10,7 @@ module LeapFrog (
   existential,
   existentialOnLast,
   merge,
+  split,
 ) where
 
 import Data.Filtrable (mapEither)
@@ -21,9 +22,11 @@ import Control.Exception (assert)
 data LeapFrog a = LeapFrog {
   current :: a,
   next :: Maybe (LeapFrog a),
-  -- I am assuing that the value that we are seeking for is always
-  -- bigger than the current value. Is this sane?
+  -- Am I assuing that the value that we are seeking for is always
+  -- bigger than the current value? This is not really understood.
   seek :: a -> Maybe (LeapFrog a),
+  -- Maybe the code would be better if this type was different. More like
+  -- End + (Maybe (Frog a))
   down :: Maybe (FrogOrEnd a)
 }
 
@@ -192,12 +195,13 @@ existentialOnLast indexOfLastPosition frog = let
 duplicateAtMergeFrom :: Ord a => a -> Int -> FrogOrEnd a -> LeapFrog a
 duplicateAtMergeFrom fixedValue 0 continuation = duplicationFrog where
   definedNext = Nothing
-  definedSeek value = if value <= fixedValue then Just duplicationFrog
-                                             else Nothing
+  definedSeek value = if value <= fixedValue 
+                        then Just duplicationFrog
+                        else Nothing
   definedDown = Just continuation
   duplicationFrog = LeapFrog fixedValue definedNext definedSeek definedDown
 duplicateAtMergeFrom fixedValue mergeFrom End =
-  error "hit end in merge before reaching merge to variable"
+  error "hit end in merge before reaching mergeTo variable"
 duplicateAtMergeFrom fixedValue mergeFrom (Frog f) = worker f where
   worker frog = let 
       definedNext = fmap worker (next frog)
@@ -205,7 +209,8 @@ duplicateAtMergeFrom fixedValue mergeFrom (Frog f) = worker f where
       definedDown = case down frog of
                       Nothing -> Nothing
                       Just continuation -> Just . Frog $
-                            duplicateAtMergeFrom fixedValue (mergeFrom - 1)                                                      continuation
+                            duplicateAtMergeFrom fixedValue (mergeFrom - 1)
+                                                 continuation
     in LeapFrog (current frog) definedNext definedSeek definedDown
 
 findMergeTo :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
@@ -217,7 +222,7 @@ findMergeTo mergeTo mergeFrom frog = let
             if mergeTo == 0
               then duplicateAtMergeFrom (current frog) (mergeFrom - 1) continuation
               else case continuation of
-                     End -> error "hit end in merge before reaching merge to variable"
+                     End -> error "hit end in merge before reaching mergeFrom variable"
                      (Frog downFrog) ->
                            findMergeTo (mergeTo - 1) (mergeFrom - 1) downFrog
     definedDown = fmap operate (down frog)

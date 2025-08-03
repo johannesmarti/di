@@ -23,8 +23,6 @@ import Data.Map.Strict as Map
 import Data.Maybe
 import Data.Set as Set
 
-import Atom hiding (Atom)
-import qualified Atom as At
 import Pretty
 
 data NodeData v u n = NodeData {
@@ -117,7 +115,8 @@ fromTupleList nodesInUnfolding tupleList =
     in Graph (Map.fromList aList)
 
 -- using converse here is probably quite slow
-fromSet :: (Ord v, Ord n) => (u -> Set n) -> Set n -> (n -> (u, Set v))                                      -> Graph v u n
+fromSet :: (Ord v, Ord n) => (u -> Set n) -> Set n -> (n -> (u, Set v))
+                                          -> Graph v u n
 fromSet nodesInUnfolding domSet f = let
     succs = nodesInUnfolding . fst . f
     preds = converse domSet succs

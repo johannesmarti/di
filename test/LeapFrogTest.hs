@@ -129,6 +129,11 @@ table2aMerge12 = fromTupleList type3
              [IntValue 4, IntValue 3, IntValue 3],
              [IntValue 4, IntValue 5, IntValue 5]]
 
+table2DisSplit = fromTupleList type1
+            [[IntValue 1],
+             [IntValue 2],
+             [IntValue 4]]
+
 tableToFrog = forceFrog "testdata frog" . fromJust . toLeapFrog
 
 frog1a = tableToFrog table1a
@@ -137,6 +142,8 @@ frog1b = tableToFrog table1b
 frog2a = tableToFrog table2a
 frog2b = tableToFrog table2b
 frog2c = tableToFrog table2c
+
+frog2Difficult = tableToFrog table2Difficult
 
 spec :: Spec
 spec = do
@@ -218,36 +225,41 @@ spec = do
                                                             [frog2a, frog2b]))
       out `shouldBe` tableConExistential1
 
-  describe "existentialOnLast" $ do
-    it "table2a existential on 1" $ do
-      let out = Table.fromTupleList type1 $ maybeFrogOrEndToTupleList $
-                  LeapFrog.existentialOnLast 1 frog2a
-      out `shouldBe` table2aExistential1
-
-    it "existential on conjunction of 2a and 2b" $ do
-      let out = Table.fromTupleList type1 $ maybeFrogOrEndToTupleList $
-                  LeapFrog.existentialOnLast 1 (fromJust (LeapFrog.conjunction
-                                                            [frog2a, frog2b]))
-      out `shouldBe` tableConExistential1
-
   describe "merge" $ do
-    it "merge over conjunction a and b" $ do
+    it "over conjunction a and b" $ do
       let con = fromJust (LeapFrog.conjunction [frog1a, frog1b])
       let out = Table.fromTupleList type2 $ frogToTupleList $
                   LeapFrog.merge 0 1 con
       out `shouldBe` table1ConMerge
 
-    it "merge over table2a 0 1" $ do
+    it "over table2a 0 1" $ do
       let out = Table.fromTupleList type3 $ frogToTupleList $
                   LeapFrog.merge 0 1 frog2a
       out `shouldBe` table2aMerge01
 
-    it "merge over table2a 0 2" $ do
+    it "over table2a 0 2" $ do
       let out = Table.fromTupleList type3 $ frogToTupleList $
                   LeapFrog.merge 0 2 frog2a
       out `shouldBe` table2aMerge02
 
-    it "merge over table2a 1 2" $ do
+    it "over table2a 1 2" $ do
       let out = Table.fromTupleList type3 $ frogToTupleList $
                   LeapFrog.merge 1 2 frog2a
       out `shouldBe` table2aMerge12
+
+  describe "split" $ do
+    it "for table2Difficult" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList $
+                  LeapFrog.split 0 1 frog2Difficult
+      out `shouldBe` (Table.fromTupleList type1 [])
+
+    let splitOverDis = LeapFrog.split 0 1 . fromJust $
+                         LeapFrog.disjunction [frog2a, frog2b]
+    it "over disjunction frog2a frog2b" $ do
+      let out = Table.fromTupleList type1 (LeapFrog.toTupleList splitOverDis)
+      out `shouldBe` table2DisSplit
+
+    it "disjunction frog2a frog2b emedded in conjunction with table1b" $ do
+      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList $
+                 (LeapFrog.conjunction [frog1b, fromJust splitOverDis])
+      out `shouldBe` (Table.fromTupleList type1 [[IntValue 2]])
