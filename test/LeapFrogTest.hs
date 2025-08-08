@@ -249,17 +249,17 @@ spec = do
 
   describe "split" $ do
     it "for table2Difficult" $ do
-      let out = Table.fromTupleList type1 $ LeapFrog.toTupleList $
+      let out = Table.fromTupleList type1 $ frogToTupleList $
                   LeapFrog.split 0 1 frog2Difficult
       out `shouldBe` (Table.fromTupleList type1 [])
 
     let splitOverDis = LeapFrog.split 0 1 . fromJust $
                          LeapFrog.disjunction [frog2a, frog2b]
     it "over disjunction frog2a frog2b" $ do
-      let out = Table.fromTupleList type1 (LeapFrog.toTupleList splitOverDis)
+      let out = Table.fromTupleList type1 (frogToTupleList splitOverDis)
       out `shouldBe` table2DisSplit
 
     it "disjunction frog2a frog2b emedded in conjunction with table1b" $ do
       let out = Table.fromTupleList type1 $ LeapFrog.toTupleList $
-                 (LeapFrog.conjunction [frog1b, fromJust splitOverDis])
+                 (LeapFrog.conjunction [frog1b, splitOverDis])
       out `shouldBe` (Table.fromTupleList type1 [[IntValue 2]])

@@ -232,6 +232,24 @@ merge :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
 merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) $
   findMergeTo mergeTo mergeFrom frog
 
-split :: Ord a => Int -> Int -> LeapFrog a -> Maybe (LeapFrog a)
-split splitFrom splitTo frog = undefined
+reproduceAtSplitTo :: Ord a => a -> Int -> FrogOrEnd a -> LeapFrog a
+reproduceAtSplitTo fixedValue splitTo frog = undefined 
 
+findSplitFrom :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
+findSplitFrom splitFrom splitTo frog = let
+    recurseOnSameLevel = findSplitFrom splitFrom splitTo
+    definedNext = fmap recurseOnSameLevel (next frog)
+    definedSeek value = fmap recurseOnSameLevel (seek frog value)
+    operate continuation = Frog $
+            if splitFrom == 0
+              then reproduceAtSplitTo (current frog) (splitTo - 1) continuation
+              else case continuation of
+                     End -> error "hit end in split before reaching splitFrom variable"
+                     (Frog downFrog) ->
+                           findSplitFrom (splitFrom - 1) (splitTo - 1) downFrog
+    definedDown = fmap operate (down frog)
+  in LeapFrog (current frog) definedNext definedSeek definedDown
+
+split :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
+split splitFrom splitTo frog = assert (splitFrom < splitTo) $
+  findSplitFrom splitFrom splitTo frog
