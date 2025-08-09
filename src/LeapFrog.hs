@@ -22,10 +22,9 @@ import Control.Exception (assert)
 data LeapFrog a = LeapFrog {
   current :: a,
   next :: Maybe (LeapFrog a),
-  -- Am I assuing that the value that we are seeking for is always
-  -- bigger than the current value? This is not really understood.
+  -- If we seek for something that is smaller than current, then we should just get the same frog back
   seek :: a -> Maybe (LeapFrog a),
-  -- Maybe the code would be better if this type was different. More like
+  -- TODO: Maybe the code would be better if this type was different. More like
   -- End + (Maybe (Frog a))
   down :: Maybe (FrogOrEnd a)
 }
@@ -232,24 +231,44 @@ merge :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
 merge mergeTo mergeFrom frog = assert (mergeTo < mergeFrom) $
   findMergeTo mergeTo mergeFrom frog
 
-reproduceAtSplitTo :: Ord a => a -> Int -> FrogOrEnd a -> LeapFrog a
-reproduceAtSplitTo fixedValue splitTo frog = undefined 
+replicateAtSplitTo :: Ord a =>
+    a -> Int -> LeapFrog a -> Maybe (FrogOrEnd a)
+replicateAtSplitTo fixedValue 0 frog = let
+    canMatchValueInFrog = case seek frog fixedValue of
+                            Nothing -> False
+                            Just f  -> current f == fixedValue
+  in if canMatchValueInFrog
+       then down frog
+       else Nothing
+replicateAtSplitTo fixedValue splitTo f = Just . Frog $ worker f where
+  worker frog = let
+      definedNext = fmap worker (next frog)
+      definedSeek value = fmap worker (seek frog value)
+      operate End = error "hit end in split before reaching splitTo variable"
+      operate (Frog downFrog) =
+          replicateAtSplitTo fixedValue (splitTo - 1) downFrog
+      definedDown = do continuation <- down frog
+                       operate continuation
+    in LeapFrog (current frog) definedNext definedSeek definedDown
 
 findSplitFrom :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
 findSplitFrom splitFrom splitTo frog = let
     recurseOnSameLevel = findSplitFrom splitFrom splitTo
     definedNext = fmap recurseOnSameLevel (next frog)
     definedSeek value = fmap recurseOnSameLevel (seek frog value)
-    operate continuation = Frog $
-            if splitFrom == 0
-              then reproduceAtSplitTo (current frog) (splitTo - 1) continuation
-              else case continuation of
-                     End -> error "hit end in split before reaching splitFrom variable"
-                     (Frog downFrog) ->
-                           findSplitFrom (splitFrom - 1) (splitTo - 1) downFrog
-    definedDown = fmap operate (down frog)
+    operate End = error "hit end in split before reaching splitFrom variable"
+    operate (Frog downFrog) =
+        if splitFrom == 0
+          then replicateAtSplitTo (current frog) (splitTo - 1) downFrog
+          else Just . Frog $
+                 findSplitFrom (splitFrom - 1) (splitTo - 1) downFrog
+    definedDown = do continuation <- down frog
+                     operate continuation
   in LeapFrog (current frog) definedNext definedSeek definedDown
 
 split :: Ord a => Int -> Int -> LeapFrog a -> LeapFrog a
 split splitFrom splitTo frog = assert (splitFrom < splitTo) $
   findSplitFrom splitFrom splitTo frog
+
+-- TODO: There seem a lot of common patterns in the definition of these
+-- frogs. Find these common frog combinators and abstract them away
